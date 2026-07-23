@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Mebabl.Platform.API/Mebabl.Platform.API.csproj" />
+    <Project Path="src/Mebabl.Platform.Application/Mebabl.Platform.Application.csproj" />
+    <Project Path="src/Mebabl.Platform.Domain/Mebabl.Platform.Domain.csproj" />
+    <Project Path="src/Mebabl.Platform.Infrastructure/Mebabl.Platform.Infrastructure.csproj" />
+  </Folder>
+</Solution>
