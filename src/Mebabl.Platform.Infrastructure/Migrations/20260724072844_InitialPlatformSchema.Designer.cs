@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Mebabl.Platform.Infrastructure.Migrations
 {
     [DbContext(typeof(PlatformDbContext))]
-    [Migration("20260724053840_InitialPlatformIdentity")]
-    partial class InitialPlatformIdentity
+    [Migration("20260724072844_InitialPlatformSchema")]
+    partial class InitialPlatformSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

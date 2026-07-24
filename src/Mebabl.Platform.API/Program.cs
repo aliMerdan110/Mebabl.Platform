@@ -1,16 +1,13 @@
-using Microsoft.EntityFrameworkCore;
-using Mebabl.Platform.Infrastructure.Data;
+using Mebabl.Platform.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddControllers();
 
-builder.Services.AddDbContext<PlatformDbContext>(options =>
-{
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"));
-});
+// ربط خدمات طبقة الـ Infrastructure (والتي تشمل قاعدة البيانات والـ DbContext تلقائياً)
+builder.Services.AddInfrastructureServices(builder.Configuration); 
 
 var app = builder.Build();
 
@@ -29,7 +26,7 @@ var summaries = new[]
 
 app.MapGet("/weatherforecast", () =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
+    var forecast = Enumerable.Range(1, 5).Select(index =>
         new WeatherForecast
         (
             DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
