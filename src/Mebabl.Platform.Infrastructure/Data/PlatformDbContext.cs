@@ -3,6 +3,7 @@ using Mebabl.Platform.Domain.Entities;
 using Mebabl.Platform.Domain.Modules.Social.Entities;
 using Mebabl.Platform.Domain.Modules.Chat.Entities;
 using Mebabl.Platform.Domain.Modules.Store.Entities;
+using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Infrastructure.Data;
 
@@ -14,7 +15,8 @@ public class PlatformDbContext : DbContext
     {
     }
 
-
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    
     // Core
 
     public DbSet<Tenant> Tenants => Set<Tenant>();

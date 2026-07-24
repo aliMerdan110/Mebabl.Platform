@@ -5,6 +5,7 @@ public class Profile
     public Guid Id { get; set; }
 
     public Guid AccountId { get; set; }
+    public Account Account { get; set; } = default!;
 
     public string Username { get; set; } = string.Empty;
 
@@ -14,5 +15,5 @@ public class Profile
 
     public string? AvatarUrl { get; set; }
 
-    public DateTime CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

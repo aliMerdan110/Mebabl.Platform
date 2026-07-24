@@ -10,13 +10,18 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
     {
         builder.ToTable("RolePermissions");
 
-        builder.HasKey(x => x.Id);
+        // استخدام مفتاح مركب لأن الكيان لا يملك Id
+        builder.HasKey(x => new { x.RoleId, x.PermissionId });
 
-        builder.HasIndex(x => new
-        {
-            x.RoleId,
-            x.PermissionId
-        })
-        .IsUnique();
+        // العلاقات
+        builder.HasOne(x => x.Role)
+               .WithMany(r => r.RolePermissions)
+               .HasForeignKey(x => x.RoleId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(x => x.Permission)
+               .WithMany(p => p.RolePermissions)
+               .HasForeignKey(x => x.PermissionId)
+               .OnDelete(DeleteBehavior.Cascade);
     }
 }
