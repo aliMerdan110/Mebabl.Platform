@@ -1,6 +1,6 @@
-namespace Mebabl.Platform.Application.Interfaces;
+namespace Mebabl.Platform.Application.Services.CurrentUser;
 
-public interface ICurrentUserService
+public interface ICurrentUser
 {
     Guid? UserId { get; }
 
@@ -8,7 +8,7 @@ public interface ICurrentUserService
 
     Guid? TenantId { get; }
 
-    string? Email { get; }
+    Guid? ApplicationId { get; }
 
     bool IsAuthenticated { get; }
 }

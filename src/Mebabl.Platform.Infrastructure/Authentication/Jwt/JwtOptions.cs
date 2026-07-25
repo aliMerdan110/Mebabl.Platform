@@ -1,10 +1,14 @@
-namespace Mebabl.Platform.Infrastructure.Authentication;
+namespace Mebabl.Platform.Infrastructure.Authentication.Jwt;
 
-public class JwtSettings
+public sealed class JwtOptions
 {
     public const string SectionName = "JwtSettings";
-    public string Secret { get; set; } = string.Empty;
+
     public string Issuer { get; set; } = string.Empty;
+
     public string Audience { get; set; } = string.Empty;
+
+    public string Secret { get; set; } = string.Empty;
+
     public int ExpiryMinutes { get; set; }
 }
