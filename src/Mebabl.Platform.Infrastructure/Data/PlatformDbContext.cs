@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Domain.Entities;
 using Mebabl.Platform.Domain.Modules.Social.Entities;
 using Mebabl.Platform.Domain.Modules.Chat.Entities;
@@ -7,7 +8,7 @@ using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Infrastructure.Data;
 
-public class PlatformDbContext : DbContext
+public class PlatformDbContext : DbContext, IApplicationDbContext
 {
     public PlatformDbContext(
         DbContextOptions<PlatformDbContext> options)

@@ -6,18 +6,30 @@ obj/
 .vs/
 .vscode/
 
+# Rider
+.idea/
+
 # User files
 *.user
 *.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+.nuget/
 
 # ASP.NET
 appsettings.Development.json
+appsettings.Local.json
 
 # Publish
 publish/
+out/
 
 # Tests
 TestResults/
+*.trx
 
 # Databases
 *.db
@@ -25,3 +37,11 @@ TestResults/
 
 # Environment
 .env
+.env.*
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
