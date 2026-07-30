@@ -1,12 +1,12 @@
-namespace Mebabl.Platform.Domain.Entities;
+using Mebabl.Platform.Domain.Common.Entities;
 
-public class RolePermission
+namespace Mebabl.Platform.Domain.Entities.Identity;
+
+public class RolePermission : AuditableEntity
 {
     public Guid RoleId { get; set; }
     public Role Role { get; set; } = default!;
 
     public Guid PermissionId { get; set; }
     public Permission Permission { get; set; } = default!;
-
-    public DateTime AssignedAt { get; set; } = DateTime.UtcNow;
 }

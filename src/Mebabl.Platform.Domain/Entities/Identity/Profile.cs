@@ -1,8 +1,10 @@
-namespace Mebabl.Platform.Domain.Entities;
 
-public class Profile
+using Mebabl.Platform.Domain.Common.Entities;
+
+namespace Mebabl.Platform.Domain.Entities.Identity;
+
+public class Profile : AuditableEntity
 {
-    public Guid Id { get; set; }
 
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = default!;
@@ -15,5 +17,4 @@ public class Profile
 
     public string? AvatarUrl { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

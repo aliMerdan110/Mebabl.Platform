@@ -1,8 +1,10 @@
-namespace Mebabl.Platform.Domain.Entities;
+using Mebabl.Platform.Domain.Common.Entities;
 
-public class Application
+namespace Mebabl.Platform.Domain.Entities.Identity;
+
+public class PlatformApplication : AuditableEntity
 {
-    public Guid Id { get; set; }
+   
 
     public Guid TenantId { get; set; }
     public Tenant Tenant { get; set; } = default!;
@@ -17,9 +19,8 @@ public class Application
 
     public bool IsActive { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    public DateTime? UpdatedAt { get; set; }
+    
 
     public ICollection<ApplicationUser> Users { get; set; }
         = new List<ApplicationUser>();

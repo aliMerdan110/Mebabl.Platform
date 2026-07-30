@@ -8,7 +8,7 @@ public interface IApplicationDbContext
 {
     DbSet<Tenant> Tenants { get; }
 
-    DbSet<Domain.Entities.Application> Applications { get; }
+    DbSet<PlatformApplication> Applications { get; }
 
     DbSet<Account> Accounts { get; }
 

@@ -17,12 +17,19 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
         _options = options.Value;
     }
 
-    public string GenerateAccessToken(Guid accountId)
+    public string GenerateAccessToken(
+    Guid accountId,
+    Guid userId,
+    Guid applicationId,
+    Guid tenantId)
     {
         var claims = new[]
-        {
-            new Claim("accountId", accountId.ToString())
-        };
+{
+    new Claim("accountId", accountId.ToString()),
+    new Claim("userId", userId.ToString()),
+    new Claim("applicationId", applicationId.ToString()),
+    new Claim("tenantId", tenantId.ToString())
+};
 
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(_options.Secret));

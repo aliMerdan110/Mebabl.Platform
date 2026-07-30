@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Mebabl.Platform.Domain.Entities;
+using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Infrastructure.Data.Configurations.Core;
 

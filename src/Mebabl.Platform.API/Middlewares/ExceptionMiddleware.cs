@@ -22,22 +22,35 @@ public sealed class ExceptionMiddleware
         {
             await _next(context);
         }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, exception.Message);
+       catch (Exception exception)
+{
+    _logger.LogError(exception, exception.Message);
 
-            context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+    context.Response.ContentType = "application/json";
 
-            var response = new
-            {
-                success = false,
-                message = "An unexpected error has occurred.",
-                statusCode = context.Response.StatusCode
-            };
+    var statusCode = exception switch
+    {
+        UnauthorizedAccessException => HttpStatusCode.Unauthorized,
+        ArgumentException => HttpStatusCode.BadRequest,
+        KeyNotFoundException => HttpStatusCode.NotFound,
+        _ => HttpStatusCode.InternalServerError
+    };
 
-            await context.Response.WriteAsync(
-                JsonSerializer.Serialize(response));
-        }
+    context.Response.StatusCode = (int)statusCode;
+
+    var response = new
+    {
+        success = false,
+        message = exception is UnauthorizedAccessException
+            ? exception.Message
+            : statusCode == HttpStatusCode.InternalServerError
+                ? "An unexpected error has occurred."
+                : exception.Message,
+        statusCode = context.Response.StatusCode
+    };
+
+    await context.Response.WriteAsync(
+        JsonSerializer.Serialize(response));
+}
     }
 }

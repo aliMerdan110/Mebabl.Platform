@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Infrastructure.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +24,13 @@ public static class ServiceCollectionExtensions
         services.Configure<JwtOptions>(
             configuration.GetSection(JwtOptions.SectionName));
 
+            services.AddDbContext<PlatformDbContext>(options =>
+    options.UseNpgsql(
+        configuration.GetConnectionString("DefaultConnection")));
+
+services.AddScoped<IApplicationDbContext>(provider =>
+    provider.GetRequiredService<PlatformDbContext>());
+
         services.AddHttpContextAccessor();
 
         services.AddScoped<IClock, Clock>();
@@ -30,6 +40,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordHasher, PasswordHasher>();
 
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+
+        
 
         return services;
     }

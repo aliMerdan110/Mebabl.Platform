@@ -1,3 +1,7 @@
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Mebabl.Platform.Domain.Common.Entities;
+using Mebabl.Platform.Application.Services.Clock;
+using Mebabl.Platform.Application.Services.CurrentUser;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Domain.Entities;
@@ -10,20 +14,25 @@ namespace Mebabl.Platform.Infrastructure.Data;
 
 public class PlatformDbContext : DbContext, IApplicationDbContext
 {
-    public PlatformDbContext(
-        DbContextOptions<PlatformDbContext> options)
-        : base(options)
-    {
-    }
+    private readonly IClock _clock;
+private readonly ICurrentUser _currentUser;
 
+public PlatformDbContext(
+    DbContextOptions<PlatformDbContext> options,
+    IClock clock,
+    ICurrentUser currentUser)
+    : base(options)
+{
+    _clock = clock;
+    _currentUser = currentUser;
+}
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     
     // Core
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
-    public DbSet<Mebabl.Platform.Domain.Entities.Application> Applications
-    => Set<Mebabl.Platform.Domain.Entities.Application>();
+    public DbSet<PlatformApplication> Applications => Set<PlatformApplication>();
 
     public DbSet<Account> Accounts => Set<Account>();
 
@@ -104,6 +113,34 @@ public class PlatformDbContext : DbContext, IApplicationDbContext
 
     public DbSet<Coupon> Coupons => Set<Coupon>();
 
+   public override async Task<int> SaveChangesAsync(
+    CancellationToken cancellationToken = default)
+{
+    UpdateAuditableEntities();
+
+    return await base.SaveChangesAsync(cancellationToken);
+}
+
+private void UpdateAuditableEntities()
+{
+    var entries = ChangeTracker.Entries<AuditableEntity>();
+
+    foreach (var entry in entries)
+    {
+        switch (entry.State)
+        {
+            case EntityState.Added:
+                entry.Entity.CreatedAt = _clock.UtcNow;
+                entry.Entity.CreatedBy = _currentUser.UserId;
+                break;
+
+            case EntityState.Modified:
+                entry.Entity.UpdatedAt = _clock.UtcNow;
+                entry.Entity.UpdatedBy = _currentUser.UserId;
+                break;
+        }
+    }
+}
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

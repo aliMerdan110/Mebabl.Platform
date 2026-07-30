@@ -6,9 +6,9 @@ public interface ICurrentUser
 
     Guid? AccountId { get; }
 
-    Guid? TenantId { get; }
-
     Guid? ApplicationId { get; }
+
+    Guid? TenantId { get; }
 
     bool IsAuthenticated { get; }
 }

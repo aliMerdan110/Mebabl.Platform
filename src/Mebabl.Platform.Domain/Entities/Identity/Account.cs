@@ -1,8 +1,10 @@
-namespace Mebabl.Platform.Domain.Entities;
 
-public class Account
+using Mebabl.Platform.Domain.Common.Entities;
+
+namespace Mebabl.Platform.Domain.Entities.Identity;
+public class Account : AuditableEntity
 {
-    public Guid Id { get; set; }
+    
     public Guid TenantId { get; set; }
     public Tenant Tenant { get; set; } = default!;
 
@@ -20,8 +22,8 @@ public class Account
     public int AccessFailedCount { get; set; }
     
     public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? UpdatedAt { get; set; }
+   
+    
     public DateTime? LastLoginAt { get; set; }
 
     public Profile? Profile { get; set; } // علاقة 1-to-1

@@ -1,12 +1,12 @@
+using Mebabl.Platform.Domain.Common.Entities;
+
 namespace Mebabl.Platform.Domain.Entities.Identity;
 
-public class RefreshToken
+public class RefreshToken : AuditableEntity
 {
-    public Guid Id { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
     public Guid ApplicationUserId { get; set; }
-    public ApplicationUser User { get; set; } = default!;
+
+    public ApplicationUser ApplicationUser { get; set; } = default!;
 
     public string Token { get; set; } = string.Empty;
 
@@ -14,7 +14,7 @@ public class RefreshToken
 
     public DateTime? RevokedAt { get; set; }
 
-    public bool IsRevoked => RevokedAt != null;
+    public bool IsRevoked => RevokedAt.HasValue;
 
     public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
 }
