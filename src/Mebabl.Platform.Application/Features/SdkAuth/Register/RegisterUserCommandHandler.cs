@@ -28,16 +28,13 @@ public sealed class RegisterUserCommandHandler
     }
 
     public async Task<RegisterUserResponse> Handle(
-        RegisterUserCommand request,
-        CancellationToken cancellationToken)
-    {
-        if (!_currentApplication.IsAuthenticated)
-        {
-            throw new UnauthorizedAccessException();
-        }
+    RegisterUserCommand request,
+    CancellationToken cancellationToken)
+{
+    var applicationId = _currentApplication.ApplicationId;
 
-        var normalizedEmail = request.Email.Trim().ToUpperInvariant();
-        var normalizedUsername = request.Username.Trim().ToUpperInvariant();
+    var normalizedEmail = request.Email.Trim().ToUpperInvariant();
+    var normalizedUsername = request.Username.Trim().ToUpperInvariant();
 
         var account = await _dbContext.Accounts
             .Include(x => x.ApplicationUsers)
@@ -67,10 +64,10 @@ public sealed class RegisterUserCommandHandler
             throw new Exception("User already exists in this application.");
         }
 
-        var applicationUser = new ApplicationUser
+      var applicationUser = new ApplicationUser
 {
     Account = account,
-    ApplicationId = _currentApplication.ApplicationId
+    ApplicationId = applicationId
 };
 
 var refreshToken = new RefreshToken
