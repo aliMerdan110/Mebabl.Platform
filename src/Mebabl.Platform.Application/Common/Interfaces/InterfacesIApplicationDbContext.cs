@@ -30,6 +30,9 @@ public interface IApplicationDbContext
 //    اضافه تطبيق جديد
     DbSet<PlatformApplication> Applications { get; }
 
+    // تاكيد الحساب عن طريق البريد الالكتروني
+    DbSet<ApplicationUserEmailVerificationToken>ApplicationUserEmailVerificationTokens { get; }
+
     DbSet<ApplicationCredential> ApplicationCredentials { get; }
 
     DbSet<ApplicationUserPasswordResetToken> ApplicationUserPasswordResetTokens { get; }

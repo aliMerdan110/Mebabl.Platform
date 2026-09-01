@@ -26,9 +26,9 @@ using Mebabl.Platform.Application.Common.Realtime;
 using Mebabl.Platform.Infrastructure.Realtime;
 using Mebabl.Platform.Application.Services.PasswordReset;
 using Mebabl.Platform.Infrastructure.Services.PasswordReset;
-using Mebabl.Platform.Infrastructure.Services.Email;
 using Mebabl.Platform.Application.Common.Options;
-
+using Mebabl.Platform.Application.Services.Email;
+using Mebabl.Platform.Infrastructure.Services.Email;
 
 
 namespace Mebabl.Platform.Infrastructure.DependencyInjection;

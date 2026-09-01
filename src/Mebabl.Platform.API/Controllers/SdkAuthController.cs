@@ -1,3 +1,4 @@
+
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,8 @@ using Mebabl.Platform.Application.Features.SdkAuth.Me;
 using Mebabl.Platform.Application.Features.SdkAuth.ChangePassword;
 using Mebabl.Platform.Application.Features.SdkAuth.ForgotPassword;
 using Mebabl.Platform.Application.Features.SdkAuth.ResetPassword;
+using Mebabl.Platform.Application.Features.SdkAuth.VerifyEmail;
+using Mebabl.Platform.Application.Features.SdkAuth.ResendVerificationEmail;
 
 
 namespace Mebabl.Platform.API.Controllers;
@@ -17,10 +20,6 @@ namespace Mebabl.Platform.API.Controllers;
 [Route("api/sdk/auth")]
 public sealed class SdkAuthController : BaseApiController
 {
-
-    
-
-
     [HttpPost("register")]
     [Authorize(Policy = "Application")]
     public async Task<IActionResult> Register(
@@ -34,18 +33,18 @@ public sealed class SdkAuthController : BaseApiController
         return Ok(result);
     }
 
-   [HttpPost("login")]
-[Authorize(Policy = "Application")]
-public async Task<IActionResult> Login(
-    LoginUserCommand command,
-    CancellationToken cancellationToken)
-{
-    var result = await Sender.Send(
-        command,
-        cancellationToken);
+    [HttpPost("login")]
+    [Authorize(Policy = "Application")]
+    public async Task<IActionResult> Login(
+        LoginUserCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
 
-    return Ok(result);
-}
+        return Ok(result);
+    }
 
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(
@@ -61,19 +60,18 @@ public async Task<IActionResult> Login(
 
     [HttpPost("logout")]
     [Authorize(Policy = "Application")]
-public async Task<IActionResult> Logout(
-    [FromBody] SdkLogoutCommand command,
-    CancellationToken cancellationToken)
-{
-    await Sender.Send(
-        command,
-        cancellationToken);
+    public async Task<IActionResult> Logout(
+        [FromBody] SdkLogoutCommand command,
+        CancellationToken cancellationToken)
+    {
+        await Sender.Send(
+            command,
+            cancellationToken);
 
-    return NoContent();
-}
+        return NoContent();
+    }
 
     [Authorize(Policy = "User")]
-
     [HttpGet("me")]
     public async Task<IActionResult> Me(
         CancellationToken cancellationToken)
@@ -85,37 +83,66 @@ public async Task<IActionResult> Logout(
         return Ok(result);
     }
 
-
-  [HttpPost("change-password")]
+    [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword(
         [FromBody] SdkChangePasswordCommand command,
         CancellationToken cancellationToken)
     {
-        await Sender.Send(command, cancellationToken);
+        await Sender.Send(
+            command,
+            cancellationToken);
 
         return NoContent();
     }
 
     [HttpPost("forgot-password")]
-    // [Authorize(Policy = "Application")] // قم بإزالتها أو التعليق عليها
     public async Task<IActionResult> ForgotPassword(
         [FromBody] SdkForgotPasswordCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await Sender.Send(command, cancellationToken);
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
+
         return Ok(result);
     }
 
     [HttpPost("reset-password")]
-    // [Authorize(Policy = "Application")] // قم بإزالتها أو التعليق عليها
     public async Task<IActionResult> ResetPassword(
         [FromBody] SdkResetPasswordCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await Sender.Send(command, cancellationToken);
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
+
         return Ok(result);
     }
 
+    [HttpPost("verify-email")]
+    public async Task<IActionResult> VerifyEmail(
+        VerifyEmailCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
 
+        return Ok(result);
+  }
+ 
+ 
+ 
+ [HttpPost("resend-verification-email")]
+[Authorize(Policy = "User")]
+public async Task<IActionResult> ResendVerificationEmail(
+    CancellationToken cancellationToken)
+{
+    var result = await Sender.Send(
+        new ResendVerificationEmailCommand(),
+        cancellationToken);
 
+    return Ok(result);
+}
+  
 }

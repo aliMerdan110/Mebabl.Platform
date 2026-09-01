@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Services.Email;
 
 namespace Mebabl.Platform.Infrastructure.Services.Email;
 

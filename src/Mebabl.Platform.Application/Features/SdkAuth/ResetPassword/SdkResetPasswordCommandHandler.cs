@@ -6,21 +6,22 @@ using Mebabl.Platform.Application.Services.PasswordReset;
 
 namespace Mebabl.Platform.Application.Features.SdkAuth.ResetPassword;
 
-
-
 public sealed class SdkResetPasswordCommandHandler
     : IRequestHandler<SdkResetPasswordCommand, SdkResetPasswordResponse>
 {
     private readonly IApplicationDbContext _dbContext;
+    private readonly ICurrentApplication _currentApplication;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IPasswordResetTokenService _tokenService;
 
     public SdkResetPasswordCommandHandler(
         IApplicationDbContext dbContext,
+        ICurrentApplication currentApplication,
         IPasswordHasher passwordHasher,
         IPasswordResetTokenService tokenService)
     {
         _dbContext = dbContext;
+        _currentApplication = currentApplication;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
     }
@@ -29,23 +30,42 @@ public sealed class SdkResetPasswordCommandHandler
         SdkResetPasswordCommand request,
         CancellationToken cancellationToken)
     {
+        // ------------------------------------------------------------
+        // Current Application
+        // ------------------------------------------------------------
+
+        var applicationId = _currentApplication.ApplicationId;
+
+        // ------------------------------------------------------------
+        // Hash Reset Token
+        // ------------------------------------------------------------
+
         var tokenHash = _tokenService.HashToken(request.Token);
+
+        // ------------------------------------------------------------
+        // Find Valid Reset Token
+        // ------------------------------------------------------------
 
         var resetToken =
             await _dbContext.ApplicationUserPasswordResetTokens
                 .Include(x => x.User)
-                .ThenInclude(u => u.Account) // جلب الحساب المرتبط
+                .ThenInclude(x => x.Account)
                 .FirstOrDefaultAsync(
                     x =>
                         x.TokenHash == tokenHash &&
                         x.UsedAt == null &&
-                        x.ExpiresAt > DateTime.UtcNow,
+                        x.ExpiresAt > DateTime.UtcNow &&
+                        x.User.ApplicationId == applicationId,
                     cancellationToken);
 
         if (resetToken is null)
         {
             throw new PasswordResetTokenInvalidException();
         }
+
+        // ------------------------------------------------------------
+        // Application User
+        // ------------------------------------------------------------
 
         var user = resetToken.User;
 
@@ -54,14 +74,33 @@ public sealed class SdkResetPasswordCommandHandler
             throw new UserAccountInactiveException();
         }
 
-        // تغيير كلمة المرور في جدول الـ Account
-        user.Account.PasswordHash = _passwordHasher.Hash(request.NewPassword);
-        user.Account.SecurityStamp = Guid.NewGuid().ToString(); // تحديث الطابع الأمني إن أمكن
+        if (!user.Account.IsActive)
+        {
+            throw new UserAccountInactiveException();
+        }
 
-        // استهلاك التوكن الحالي
-        resetToken.UsedAt = DateTime.UtcNow;
+        // ------------------------------------------------------------
+        // Change Password
+        // ------------------------------------------------------------
 
-        // إلغاء بقية توكنات إعادة التعيين
+        user.Account.PasswordHash =
+            _passwordHasher.Hash(request.NewPassword);
+
+        user.Account.SecurityStamp =
+            Guid.NewGuid().ToString();
+
+        // ------------------------------------------------------------
+        // Consume Current Reset Token
+        // ------------------------------------------------------------
+
+        var now = DateTime.UtcNow;
+
+        resetToken.UsedAt = now;
+
+        // ------------------------------------------------------------
+        // Revoke Other Password Reset Tokens
+        // ------------------------------------------------------------
+
         var otherResetTokens =
             await _dbContext.ApplicationUserPasswordResetTokens
                 .Where(x =>
@@ -72,39 +111,57 @@ public sealed class SdkResetPasswordCommandHandler
 
         foreach (var token in otherResetTokens)
         {
-            token.UsedAt = DateTime.UtcNow;
+            token.UsedAt = now;
         }
 
-        // إلغاء الـ Refresh Tokens (تأكد هل الخاصية اسمها AccountId أو UserId في RefreshTokens)
-        // إلغاء الـ Refresh Tokens النشطة الخاصة بمستخدم الـ SDK
+        // ------------------------------------------------------------
+        // Revoke Existing Refresh Tokens
+        // ------------------------------------------------------------
+
         var refreshTokens =
             await _dbContext.RefreshTokens
                 .Where(x =>
                     x.ApplicationUserId == user.Id &&
                     x.RevokedAt == null &&
-                    x.ExpiresAt > DateTime.UtcNow)
+                    x.ExpiresAt > now)
                 .ToListAsync(cancellationToken);
 
         foreach (var refreshToken in refreshTokens)
         {
-            refreshToken.RevokedAt = DateTime.UtcNow;
+            refreshToken.RevokedAt = now;
         }
+
+        // ------------------------------------------------------------
+        // Save
+        // ------------------------------------------------------------
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new SdkResetPasswordResponse("Password has been reset successfully.");
+        // ------------------------------------------------------------
+        // Response
+        // ------------------------------------------------------------
+
+        return new SdkResetPasswordResponse(
+            "Password has been reset successfully.");
     }
 }
 
-// الاستثناءات الخاصة بالمستخدمين
+// ------------------------------------------------------------
+// Exceptions
+// ------------------------------------------------------------
+
 public sealed class PasswordResetTokenInvalidException : Exception
 {
     public PasswordResetTokenInvalidException()
-        : base("The password reset token is invalid or has expired.") { }
+        : base("The password reset token is invalid or has expired.")
+    {
+    }
 }
 
 public sealed class UserAccountInactiveException : Exception
 {
     public UserAccountInactiveException()
-        : base("The user account is inactive.") { }
+        : base("The user account is inactive.")
+    {
+    }
 }

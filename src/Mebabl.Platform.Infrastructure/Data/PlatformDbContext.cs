@@ -35,7 +35,11 @@ public PlatformDbContext(
 
     public DbSet<DeveloperPasswordResetToken> DeveloperPasswordResetTokens { get; set; }
 
-    
+    // EmailVerificationTokens
+    // 
+   public DbSet<ApplicationUserEmailVerificationToken>
+    ApplicationUserEmailVerificationTokens
+    => Set<ApplicationUserEmailVerificationToken>();
     
     // أضف هذا السطر هنا ليكون متاحاً لـ SDK Users
     public DbSet<ApplicationUserPasswordResetToken> ApplicationUserPasswordResetTokens => Set<ApplicationUserPasswordResetToken>();

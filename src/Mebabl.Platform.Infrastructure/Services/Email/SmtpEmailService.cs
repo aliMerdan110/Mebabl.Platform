@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
 using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Services.Email;
 
 namespace Mebabl.Platform.Infrastructure.Services.Email;
 

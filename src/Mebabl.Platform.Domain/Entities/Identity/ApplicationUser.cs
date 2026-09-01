@@ -14,6 +14,11 @@ public class ApplicationUser : AuditableEntity
 // تم اضافته بتاريخ 18/8
     public ICollection<ApplicationUserPasswordResetToken> PasswordResetTokens { get; set; } = new List<ApplicationUserPasswordResetToken>();
 
+// EmailVerificationTokens
+public ICollection<ApplicationUserEmailVerificationToken>
+    EmailVerificationTokens { get; set; } = new List<ApplicationUserEmailVerificationToken>();
+
+
     public bool IsActive { get; set; } = true;
 
     public DateTime? LastLoginAt { get; set; }

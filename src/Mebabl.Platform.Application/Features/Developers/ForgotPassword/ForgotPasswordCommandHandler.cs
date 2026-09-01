@@ -5,6 +5,7 @@ using Mebabl.Platform.Application.Services.PasswordReset;
 using Mebabl.Platform.Domain.Entities.Identity;
 using Microsoft.Extensions.Options;
 using Mebabl.Platform.Application.Common.Options;
+using Mebabl.Platform.Application.Services.Email;
 
 namespace Mebabl.Platform.Application.Features.Developers.ForgotPassword;
 
