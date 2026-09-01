@@ -34,17 +34,18 @@ public sealed class SdkAuthController : BaseApiController
         return Ok(result);
     }
 
-    [HttpPost("login")]
-        public async Task<IActionResult> Login(
-        LoginUserCommand command,
-        CancellationToken cancellationToken)
-    {
-        var result = await Sender.Send(
-            command,
-            cancellationToken);
+   [HttpPost("login")]
+[Authorize(Policy = "Application")]
+public async Task<IActionResult> Login(
+    LoginUserCommand command,
+    CancellationToken cancellationToken)
+{
+    var result = await Sender.Send(
+        command,
+        cancellationToken);
 
-        return Ok(result);
-    }
+    return Ok(result);
+}
 
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(

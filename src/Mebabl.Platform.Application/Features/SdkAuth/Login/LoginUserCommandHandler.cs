@@ -35,14 +35,7 @@ public sealed class LoginUserCommandHandler
         // Validate Application
         // ------------------------------------------------------------
 
-        var applicationAuthenticated =
-            await _currentApplication.ValidateAsync(cancellationToken);
-
-        if (!applicationAuthenticated)
-        {
-            throw new UnauthorizedAccessException(
-                "Invalid application credentials.");
-        }
+       
 
         var applicationId = _currentApplication.ApplicationId;
 
