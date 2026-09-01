@@ -13,7 +13,6 @@ using Mebabl.Platform.Application.Features.SdkAuth.ResetPassword;
 using Mebabl.Platform.Application.Features.SdkAuth.VerifyEmail;
 using Mebabl.Platform.Application.Features.SdkAuth.ResendVerificationEmail;
 
-
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
@@ -96,6 +95,7 @@ public sealed class SdkAuthController : BaseApiController
     }
 
     [HttpPost("forgot-password")]
+    [Authorize(Policy = "Application")]
     public async Task<IActionResult> ForgotPassword(
         [FromBody] SdkForgotPasswordCommand command,
         CancellationToken cancellationToken)
@@ -129,20 +129,17 @@ public sealed class SdkAuthController : BaseApiController
             cancellationToken);
 
         return Ok(result);
-  }
- 
- 
- 
- [HttpPost("resend-verification-email")]
-[Authorize(Policy = "User")]
-public async Task<IActionResult> ResendVerificationEmail(
-    CancellationToken cancellationToken)
-{
-    var result = await Sender.Send(
-        new ResendVerificationEmailCommand(),
-        cancellationToken);
+    }
 
-    return Ok(result);
-}
-  
+    [HttpPost("resend-verification-email")]
+    [Authorize(Policy = "User")]
+    public async Task<IActionResult> ResendVerificationEmail(
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            new ResendVerificationEmailCommand(),
+            cancellationToken);
+
+        return Ok(result);
+    }
 }
