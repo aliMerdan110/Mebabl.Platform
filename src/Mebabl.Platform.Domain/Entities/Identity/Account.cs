@@ -5,8 +5,6 @@ namespace Mebabl.Platform.Domain.Entities.Identity;
 public class Account : AuditableEntity
 {
     
-    public Guid TenantId { get; set; }
-    public Tenant Tenant { get; set; } = default!;
 
     public string Email { get; set; } = string.Empty;
     public string NormalizedEmail { get; set; } = string.Empty;

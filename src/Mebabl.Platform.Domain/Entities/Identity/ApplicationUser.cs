@@ -10,6 +10,10 @@ public class ApplicationUser : AuditableEntity
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = default!;
 
+
+// تم اضافته بتاريخ 18/8
+    public ICollection<ApplicationUserPasswordResetToken> PasswordResetTokens { get; set; } = new List<ApplicationUserPasswordResetToken>();
+
     public bool IsActive { get; set; } = true;
 
     public DateTime? LastLoginAt { get; set; }

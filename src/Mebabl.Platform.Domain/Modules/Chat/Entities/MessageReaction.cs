@@ -1,14 +1,14 @@
+using Mebabl.Platform.Domain.Common.Entities;
+
 namespace Mebabl.Platform.Domain.Modules.Chat.Entities;
 
-public class MessageReaction
+public class MessageReaction : AuditableEntity
 {
-    public Guid Id { get; set; }
-
     public Guid MessageId { get; set; }
 
-    public Guid ApplicationUserId { get; set; }
+    public Message Message { get; set; } = default!;
+
+    public Guid UserId { get; set; }
 
     public string Reaction { get; set; } = string.Empty;
-
-    public DateTime CreatedAt { get; set; }
 }

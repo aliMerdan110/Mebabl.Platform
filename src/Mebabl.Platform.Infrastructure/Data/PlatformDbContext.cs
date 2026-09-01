@@ -1,14 +1,20 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Mebabl.Platform.Domain.Common.Entities;
 using Mebabl.Platform.Application.Services.Clock;
-using Mebabl.Platform.Application.Services.CurrentUser;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Domain.Entities;
-using Mebabl.Platform.Domain.Modules.Social.Entities;
-using Mebabl.Platform.Domain.Modules.Chat.Entities;
-using Mebabl.Platform.Domain.Modules.Store.Entities;
 using Mebabl.Platform.Domain.Entities.Identity;
+using Mebabl.Platform.Domain.Entities.Database;
+using Mebabl.Platform.Domain.Entities.Storage;
+using Mebabl.Platform.Domain.Entities.Realtime;
+using Mebabl.Platform.Domain.Entities.Notifications;
+using Mebabl.Platform.Domain.Modules.Chat.Entities;
+using Mebabl.Platform.Domain.Entities.Applications;
+
+
+
+
 
 namespace Mebabl.Platform.Infrastructure.Data;
 
@@ -26,14 +32,53 @@ public PlatformDbContext(
     _clock = clock;
     _currentUser = currentUser;
 }
-    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-    
-    // Core
 
-    public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<DeveloperPasswordResetToken> DeveloperPasswordResetTokens { get; set; }
+
+    
+    
+    // أضف هذا السطر هنا ليكون متاحاً لـ SDK Users
+    public DbSet<ApplicationUserPasswordResetToken> ApplicationUserPasswordResetTokens => Set<ApplicationUserPasswordResetToken>();
+
+
+    public DbSet<Developer> Developers => Set<Developer>();
+
+    public DbSet<Collection> Collections => Set<Collection>();
+
+    public DbSet<Document> Documents => Set<Document>();
+
+    public DbSet<Bucket> Buckets => Set<Bucket>();
+
+    public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
+
+
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public DbSet<DeveloperRefreshToken> DeveloperRefreshTokens
+    => Set<DeveloperRefreshToken>();
+
+    public DbSet<Mebabl.Platform.Domain.Entities.Notifications.Notification>
+    Notifications
+    => Set<Mebabl.Platform.Domain.Entities.Notifications.Notification>();
+    // Core
+//  خاصية اضافه معلومات التطبيق عند الانشاء 
+    public DbSet<ApplicationPlatform> ApplicationPlatforms
+    => Set<ApplicationPlatform>();
+
+
+    public DbSet<ApplicationCredential> ApplicationCredentials
+    => Set<ApplicationCredential>();
+
+   public DbSet<ApplicationAuthProvider> ApplicationAuthProviders
+    => Set<ApplicationAuthProvider>();
 
     public DbSet<PlatformApplication> Applications => Set<PlatformApplication>();
 
+    public DbSet<ApplicationAuthenticationSettings>
+    ApplicationAuthenticationSettings
+    => Set<ApplicationAuthenticationSettings>();
+
+    
     public DbSet<Account> Accounts => Set<Account>();
 
     public DbSet<Profile> Profiles => Set<Profile>();
@@ -48,70 +93,36 @@ public PlatformDbContext(
 
     public DbSet<ApplicationUserRole> ApplicationUserRoles => Set<ApplicationUserRole>();
 
+    public DbSet<SecurityRule> SecurityRules => Set<SecurityRule>();
 
-    // Social
+    public DbSet<Channel> Channels { get; set; } = default!;
 
-    public DbSet<Post> Posts => Set<Post>();
-
-    public DbSet<Media> Medias => Set<Media>();
-
-    public DbSet<Comment> Comments => Set<Comment>();
-
-    public DbSet<Like> Likes => Set<Like>();
-
-    public DbSet<Follow> Follows => Set<Follow>();
-
-    public DbSet<Share> Shares => Set<Share>();
-
-    public DbSet<Notification> Notifications => Set<Notification>();
-
-    public DbSet<Mention> Mentions => Set<Mention>();
-
-
-    // Chat
+public DbSet<RealtimeEvent> RealtimeEvents { get; set; } = default!;
+    
 
     public DbSet<Conversation> Conversations => Set<Conversation>();
 
-    public DbSet<Message> Messages => Set<Message>();
+public DbSet<ConversationParticipant> ConversationParticipants
+    => Set<ConversationParticipant>();
 
-    public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
+public DbSet<Message> Messages => Set<Message>();
 
-    public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
-
-    public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
-
-    public DbSet<BlockedUser> BlockedUsers => Set<BlockedUser>();
+public DbSet<MessageRead> MessageReads
+    => Set<MessageRead>();
 
 
-    // Store
+public DbSet<MessageReaction> MessageReactions
+    => Set<MessageReaction>();
 
-    public DbSet<Category> Categories => Set<Category>();
 
-    public DbSet<Product> Products => Set<Product>();
+public DbSet<MessageAttachment> MessageAttachments
+    => Set<MessageAttachment>();
 
-    public DbSet<ProductMedia> ProductMedias => Set<ProductMedia>();
 
-    public DbSet<Inventory> Inventories => Set<Inventory>();
 
-    public DbSet<Cart> Carts => Set<Cart>();
 
-    public DbSet<CartItem> CartItems => Set<CartItem>();
+    // 
 
-    public DbSet<Order> Orders => Set<Order>();
-
-    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
-
-    public DbSet<Payment> Payments => Set<Payment>();
-
-    public DbSet<Shipment> Shipments => Set<Shipment>();
-
-    public DbSet<Review> Reviews => Set<Review>();
-
-    public DbSet<Wishlist> Wishlists => Set<Wishlist>();
-
-    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
-
-    public DbSet<Coupon> Coupons => Set<Coupon>();
 
    public override async Task<int> SaveChangesAsync(
     CancellationToken cancellationToken = default)

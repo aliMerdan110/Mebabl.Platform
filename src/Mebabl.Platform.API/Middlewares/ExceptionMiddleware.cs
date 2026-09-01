@@ -1,5 +1,7 @@
+
 using System.Net;
 using System.Text.Json;
+using Mebabl.Platform.Application.Features.Developers.ResetPassword;
 
 namespace Mebabl.Platform.API.Middlewares;
 
@@ -22,35 +24,58 @@ public sealed class ExceptionMiddleware
         {
             await _next(context);
         }
-       catch (Exception exception)
-{
-    _logger.LogError(exception, exception.Message);
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                exception.Message);
 
-    context.Response.ContentType = "application/json";
+            context.Response.ContentType =
+                "application/json";
 
-    var statusCode = exception switch
-    {
-        UnauthorizedAccessException => HttpStatusCode.Unauthorized,
-        ArgumentException => HttpStatusCode.BadRequest,
-        KeyNotFoundException => HttpStatusCode.NotFound,
-        _ => HttpStatusCode.InternalServerError
-    };
+            var statusCode = exception switch
+            {
+                PasswordResetTokenInvalidException =>
+                    HttpStatusCode.Unauthorized,
 
-    context.Response.StatusCode = (int)statusCode;
+                DeveloperAccountInactiveException =>
+                    HttpStatusCode.Unauthorized,
 
-    var response = new
-    {
-        success = false,
-        message = exception is UnauthorizedAccessException
-            ? exception.Message
-            : statusCode == HttpStatusCode.InternalServerError
-                ? "An unexpected error has occurred."
-                : exception.Message,
-        statusCode = context.Response.StatusCode
-    };
+                UnauthorizedAccessException =>
+                    HttpStatusCode.Unauthorized,
 
-    await context.Response.WriteAsync(
-        JsonSerializer.Serialize(response));
-}
+                ArgumentException =>
+                    HttpStatusCode.BadRequest,
+
+                KeyNotFoundException =>
+                    HttpStatusCode.NotFound,
+
+                _ =>
+                    HttpStatusCode.InternalServerError
+            };
+
+            context.Response.StatusCode =
+                (int)statusCode;
+
+            var response = new
+            {
+                success = false,
+
+                message = exception is
+                    PasswordResetTokenInvalidException
+                        or DeveloperAccountInactiveException
+                        or UnauthorizedAccessException
+                    ? exception.Message
+                    : statusCode ==
+                        HttpStatusCode.InternalServerError
+                        ? "An unexpected error has occurred."
+                        : exception.Message,
+
+                statusCode = context.Response.StatusCode
+            };
+
+            await context.Response.WriteAsync(
+                JsonSerializer.Serialize(response));
+        }
     }
 }

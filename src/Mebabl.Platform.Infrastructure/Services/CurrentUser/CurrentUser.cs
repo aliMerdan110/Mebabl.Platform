@@ -1,10 +1,10 @@
 using System.Security.Claims;
+using Mebabl.Platform.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Http;
-using Mebabl.Platform.Application.Services.CurrentUser;
 
 namespace Mebabl.Platform.Infrastructure.Services.CurrentUser;
 
-public sealed class CurrentUser : ICurrentUser
+public class CurrentUser : ICurrentUser
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
 
@@ -13,29 +13,29 @@ public sealed class CurrentUser : ICurrentUser
         _httpContextAccessor = httpContextAccessor;
     }
 
-    private ClaimsPrincipal? User => _httpContextAccessor.HttpContext?.User;
+    private ClaimsPrincipal? User =>
+        _httpContextAccessor.HttpContext?.User;
 
-    public Guid? UserId =>
+    public Guid UserId =>
         GetGuidClaim("userId");
 
-    public Guid? AccountId =>
+    public Guid AccountId =>
         GetGuidClaim("accountId");
 
-    public Guid? TenantId =>
-        GetGuidClaim("tenantId");
-
-    public Guid? ApplicationId =>
+    public Guid ApplicationId =>
         GetGuidClaim("applicationId");
 
-    public bool IsAuthenticated =>
-        User?.Identity?.IsAuthenticated ?? false;
 
-    private Guid? GetGuidClaim(string claimType)
+    public bool IsAuthenticated =>
+        User?.Identity?.IsAuthenticated == true;
+
+
+    private Guid GetGuidClaim(string claimType)
     {
         var value = User?.FindFirst(claimType)?.Value;
 
         return Guid.TryParse(value, out var id)
             ? id
-            : null;
+            : Guid.Empty;
     }
 }

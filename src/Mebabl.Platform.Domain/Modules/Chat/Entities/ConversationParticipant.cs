@@ -1,14 +1,20 @@
+using Mebabl.Platform.Domain.Common.Entities;
+
 namespace Mebabl.Platform.Domain.Modules.Chat.Entities;
 
-public class ConversationParticipant
+public class ConversationParticipant : AuditableEntity
 {
-    public Guid Id { get; set; }
-
     public Guid ConversationId { get; set; }
 
-    public Guid ApplicationUserId { get; set; }
+    public Conversation Conversation { get; set; } = default!;
 
-    public DateTime JoinedAt { get; set; }
+    public Guid UserId { get; set; }
 
-    public bool IsActive { get; set; }
+    public DateTime? JoinedAt { get; set; }
+
+    public DateTime? LeftAt { get; set; }
+
+    public DateTime? LastReadAt { get; set; }
+
+    public bool IsAdmin { get; set; }
 }

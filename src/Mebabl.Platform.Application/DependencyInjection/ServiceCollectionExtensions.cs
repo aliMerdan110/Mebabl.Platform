@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 
 
+
 namespace Mebabl.Platform.Application.DependencyInjection;
 
 public static class ServiceCollectionExtensions

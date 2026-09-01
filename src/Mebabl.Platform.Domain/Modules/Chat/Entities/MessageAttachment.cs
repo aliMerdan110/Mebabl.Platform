@@ -1,14 +1,17 @@
+using Mebabl.Platform.Domain.Common.Entities;
+using Mebabl.Platform.Domain.Entities.Storage;
+
 namespace Mebabl.Platform.Domain.Modules.Chat.Entities;
 
-public class MessageAttachment
+public class MessageAttachment : AuditableEntity
 {
-    public Guid Id { get; set; }
-
     public Guid MessageId { get; set; }
 
-    public string Url { get; set; } = string.Empty;
+    public Message Message { get; set; } = default!;
 
-    public string Type { get; set; } = string.Empty;
+    public Guid StoredFileId { get; set; }
 
-    public DateTime CreatedAt { get; set; }
+    public StoredFile StoredFile { get; set; } = default!;
+
+    public string? Caption { get; set; }
 }

@@ -24,9 +24,18 @@ public class ApplicationConfiguration
         builder.HasIndex(x => x.Code)
             .IsUnique();
 
-        builder.HasOne(x => x.Tenant)
+        
+
+        builder.HasOne(x => x.Developer)
             .WithMany(x => x.Applications)
-            .HasForeignKey(x => x.TenantId)
+            .HasForeignKey(x => x.DeveloperId)
             .OnDelete(DeleteBehavior.Cascade);
+
+
+       builder.HasMany(x => x.Credentials)
+    .WithOne(x => x.Application)
+    .HasForeignKey(x => x.ApplicationId)
+    .OnDelete(DeleteBehavior.Cascade);
+
     }
 }
