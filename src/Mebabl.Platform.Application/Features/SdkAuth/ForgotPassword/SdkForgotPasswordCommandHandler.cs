@@ -7,6 +7,7 @@ using Mebabl.Platform.Application.Services.PasswordReset;
 using Mebabl.Platform.Domain.Entities.Identity;
 using Mebabl.Platform.Application.Services.Email;
 
+
 namespace Mebabl.Platform.Application.Features.SdkAuth.ForgotPassword;
 
 public sealed class SdkForgotPasswordCommandHandler
@@ -16,20 +17,20 @@ public sealed class SdkForgotPasswordCommandHandler
     private readonly ICurrentApplication _currentApplication;
     private readonly IPasswordResetTokenService _tokenService;
     private readonly IEmailService _emailService;
-    private readonly ConsoleOptions _consoleOptions;
+    private readonly AuthOptions _authOptions;
 
     public SdkForgotPasswordCommandHandler(
         IApplicationDbContext dbContext,
         ICurrentApplication currentApplication,
         IPasswordResetTokenService tokenService,
         IEmailService emailService,
-        IOptions<ConsoleOptions> consoleOptions)
+        IOptions<AuthOptions> authOptions)
     {
         _dbContext = dbContext;
         _currentApplication = currentApplication;
         _tokenService = tokenService;
         _emailService = emailService;
-        _consoleOptions = consoleOptions.Value;
+        _authOptions = authOptions.Value;
     }
 
     public async Task<SdkForgotPasswordResponse> Handle(
@@ -121,10 +122,10 @@ public sealed class SdkForgotPasswordCommandHandler
         // Build Reset URL
         // ------------------------------------------------------------
 
-        var consoleUrl = _consoleOptions.BaseUrl.TrimEnd('/');
+        var authUrl = _authOptions.BaseUrl.TrimEnd('/');
 
-        var resetUrl =
-            $"{consoleUrl}/sdk/reset-password?token={Uri.EscapeDataString(rawToken)}";
+var resetUrl =
+    $"{authUrl}/reset-password?token={Uri.EscapeDataString(rawToken)}";
 
         // ------------------------------------------------------------
         // Send Email
