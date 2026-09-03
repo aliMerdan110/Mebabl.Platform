@@ -11,6 +11,7 @@ using Mebabl.Platform.Domain.Entities.Realtime;
 using Mebabl.Platform.Domain.Entities.Notifications;
 using Mebabl.Platform.Domain.Modules.Chat.Entities;
 using Mebabl.Platform.Domain.Entities.Applications;
+using Mebabl.Platform.Domain.Live;
 
 
 
@@ -43,6 +44,14 @@ public PlatformDbContext(
     
     // أضف هذا السطر هنا ليكون متاحاً لـ SDK Users
     public DbSet<ApplicationUserPasswordResetToken> ApplicationUserPasswordResetTokens => Set<ApplicationUserPasswordResetToken>();
+
+// 
+public DbSet<LiveStream> LiveStreams => Set<LiveStream>();
+
+public DbSet<StreamCredential> StreamCredentials => Set<StreamCredential>();
+
+public DbSet<LiveStreamSession> LiveStreamSessions => Set<LiveStreamSession>();
+
 
 
     public DbSet<Developer> Developers => Set<Developer>();
@@ -157,11 +166,18 @@ private void UpdateAuditableEntities()
     }
 }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
+  
 
-        modelBuilder.ApplyConfigurationsFromAssembly(
-            typeof(PlatformDbContext).Assembly);
-    }
+
+    // Infrastructure/Persistence/PlatformDbContext.cs
+//
+// داخل OnModelCreating تأكد من تسجيل Configuration الخاصة بالجلسة.
+
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    base.OnModelCreating(modelBuilder);
+
+    modelBuilder.ApplyConfigurationsFromAssembly(
+        typeof(PlatformDbContext).Assembly);
+}
 }

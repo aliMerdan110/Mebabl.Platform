@@ -7,6 +7,7 @@ using Mebabl.Platform.Domain.Entities.Realtime;
 using Mebabl.Platform.Domain.Entities.Notifications;
 using Mebabl.Platform.Domain.Modules.Chat.Entities;
 using Mebabl.Platform.Domain.Entities.Applications;
+using Mebabl.Platform.Domain.Live;
 
 
 
@@ -29,6 +30,13 @@ public interface IApplicationDbContext
 
 //    اضافه تطبيق جديد
     DbSet<PlatformApplication> Applications { get; }
+
+    // live stream
+    DbSet<LiveStream> LiveStreams { get; }
+
+DbSet<StreamCredential> StreamCredentials { get; }
+
+DbSet<LiveStreamSession> LiveStreamSessions { get; }
 
     // تاكيد الحساب عن طريق البريد الالكتروني
     DbSet<ApplicationUserEmailVerificationToken>ApplicationUserEmailVerificationTokens { get; }
@@ -91,4 +99,8 @@ DbSet<MessageAttachment> MessageAttachments { get; }
 
     Task<int> SaveChangesAsync(
         CancellationToken cancellationToken);
+
+
+
+
 }

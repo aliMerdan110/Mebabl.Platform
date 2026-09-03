@@ -30,6 +30,12 @@ using Mebabl.Platform.Application.Common.Options;
 using Mebabl.Platform.Application.Services.Email;
 using Mebabl.Platform.Infrastructure.Services.Email;
 
+// Live Streaming
+using Mebabl.Platform.Application.Common.Services.Authorization;
+using Mebabl.Platform.Application.Services.Live;
+using Mebabl.Platform.Infrastructure.Authorization;
+using Mebabl.Platform.Infrastructure.Live;
+
 
 namespace Mebabl.Platform.Infrastructure.DependencyInjection;
 
@@ -39,77 +45,283 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // ---------------------------------------------------------
+        // Password Reset
+        // مسؤول عن إنشاء والتحقق من Reset Tokens
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            IPasswordResetTokenService,
+            PasswordResetTokenService>();
 
 
-services.AddScoped<IPasswordResetTokenService,PasswordResetTokenService>();
+        // ---------------------------------------------------------
+        // Email
+        // مسؤول عن إرسال رسائل البريد الإلكتروني
+        // ---------------------------------------------------------
 
-services.Configure<EmailOptions>(
-    configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<EmailOptions>(
+            configuration.GetSection(EmailOptions.SectionName));
 
-services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<
+            IEmailService,
+            SmtpEmailService>();
 
+
+        // ---------------------------------------------------------
+        // JWT
+        // إعدادات وإنشاء JWT Tokens
+        // ---------------------------------------------------------
 
         services.Configure<JwtOptions>(
             configuration.GetSection(JwtOptions.SectionName));
 
-            services.Configure<ConsoleOptions>(
-    configuration.GetSection(ConsoleOptions.SectionName));
+
+        // ---------------------------------------------------------
+        // Console
+        // إعدادات روابط وخدمات Mebabl Console
+        // ---------------------------------------------------------
+
+        services.Configure<ConsoleOptions>(
+            configuration.GetSection(ConsoleOptions.SectionName));
 
 
-    services.AddSingleton<IAuthorizationPolicyProvider,
-    PermissionPolicyProvider>();
+        // ---------------------------------------------------------
+        // Authorization
+        // نظام Permission-based Authorization
+        // يسمح باستخدام [Authorize(Policy = "...")]
+        // ---------------------------------------------------------
 
-services.AddSingleton<IAuthorizationHandler,
-    PermissionAuthorizationHandler>();       
+        services.AddSingleton<
+            IAuthorizationPolicyProvider,
+            PermissionPolicyProvider>();
 
-            services.AddDbContext<PlatformDbContext>(options =>
-    options.UseNpgsql(
-        configuration.GetConnectionString("DefaultConnection")));
-
-services.AddScoped<IApplicationDbContext>(provider =>
-    provider.GetRequiredService<PlatformDbContext>());
+        services.AddSingleton<
+            IAuthorizationHandler,
+            PermissionAuthorizationHandler>();
 
 
-    services.AddScoped<IDocumentSecurityService, DocumentSecurityService>();
+        // ---------------------------------------------------------
+        // Database
+        // PostgreSQL + Entity Framework Core
+        // ---------------------------------------------------------
 
-    services.AddScoped<IRealtimePublisher,  SignalRRealtimePublisher>();
+        services.AddDbContext<PlatformDbContext>(options =>
+            options.UseNpgsql(
+                configuration.GetConnectionString(
+                    "DefaultConnection")));
 
-    services.AddScoped<ICurrentUser, CurrentUser>();
 
-    services.AddScoped<ICurrentDeveloper, CurrentDeveloper>();
+        // ---------------------------------------------------------
+        // Application DbContext
+        // يجعل Application Layer تتعامل مع قاعدة البيانات
+        // من خلال IApplicationDbContext
+        // ---------------------------------------------------------
 
-    services.AddScoped<ICurrentApplication, CurrentApplication>();
+        services.AddScoped<IApplicationDbContext>(provider =>
+            provider.GetRequiredService<PlatformDbContext>());
+
+
+        // =========================================================
+        // LIVE STREAMING
+        // =========================================================
+
+        // ---------------------------------------------------------
+        // Permission Checker
+        //
+        // يفحص:
+        //
+        // ApplicationUser
+        //      ↓
+        // ApplicationUserRole
+        //      ↓
+        // Role
+        //      ↓
+        // RolePermission
+        //      ↓
+        // Permission
+        //
+        // مثال:
+        // live.publish
+        // live.view
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            IPermissionChecker,
+            PermissionChecker>();
+
+            // Infrastructure/DependencyInjection.cs
+//
+// تسجيل الخدمات المطلوبة.
+
+services.AddScoped<ILiveAuthorizationService, LiveAuthorizationService>();
+
+
+services.AddScoped<
+    IPublishTokenService,
+    PublishTokenService>();
+// Infrastructure/DependencyInjection/ServiceCollectionExtensions.cs
+// Live Token Service
+
+
+
+        // ---------------------------------------------------------
+        // Live Authorization
+        //
+        // يقرر هل المستخدم يستطيع:
+        //
+        // Publish
+        // View
+        //
+        // ولا يفرض أن Developer هو الذي يبث.
+        // التطبيق نفسه يحدد الصلاحيات.
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            ILiveAuthorizationService,
+            LiveAuthorizationService>();
+
+
+        // ---------------------------------------------------------
+        // Document Security
+        // قواعد أمان Collections / Documents
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            IDocumentSecurityService,
+            DocumentSecurityService>();
+
+
+        // ---------------------------------------------------------
+        // Realtime
+        // نشر الأحداث عبر SignalR
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            IRealtimePublisher,
+            SignalRRealtimePublisher>();
+
+
+        // ---------------------------------------------------------
+        // Current User
+        // المستخدم الحالي من Application JWT
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            ICurrentUser,
+            CurrentUser>();
+
+
+        // ---------------------------------------------------------
+        // Current Developer
+        // Developer JWT الحالي
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            ICurrentDeveloper,
+            CurrentDeveloper>();
+
+
+        // ---------------------------------------------------------
+        // Current Application
+        // Application Authentication Context
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            ICurrentApplication,
+            CurrentApplication>();
+
+
+        // ---------------------------------------------------------
+        // HTTP Context
+        // الوصول إلى HttpContext من الخدمات
+        // ---------------------------------------------------------
 
         services.AddHttpContextAccessor();
 
-        services.AddScoped<IClock, Clock>();
 
-        
+        // ---------------------------------------------------------
+        // Clock
+        // مصدر موحد للوقت UTC
+        // ---------------------------------------------------------
 
-        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<
+            IClock,
+            Clock>();
 
-        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
-        services.AddScoped<IApplicationInitializer, ApplicationInitializer>();
+        // ---------------------------------------------------------
+        // Password Hashing
+        // تشفير كلمات المرور والتحقق منها
+        // ---------------------------------------------------------
 
-        services.AddScoped<IQueryBuilder, PostgreSqlQueryBuilder>();
+        services.AddScoped<
+            IPasswordHasher,
+            PasswordHasher>();
 
-        services.AddScoped<IStorageProvider, LocalStorageProvider>();
+
+        // ---------------------------------------------------------
+        // JWT Token Generator
+        // إنشاء Access / Refresh JWT Tokens
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            IJwtTokenGenerator,
+            JwtTokenGenerator>();
+
+
+        // ---------------------------------------------------------
+        // Application Initializer
+        // إنشاء البيانات الافتراضية عند إنشاء Application
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            IApplicationInitializer,
+            ApplicationInitializer>();
+
+
+        // ---------------------------------------------------------
+        // Query Engine
+        // بناء وتنفيذ استعلامات PostgreSQL
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            IQueryBuilder,
+            PostgreSqlQueryBuilder>();
+
+
+        // ---------------------------------------------------------
+        // Storage
+        // التخزين المحلي للملفات
+        // ---------------------------------------------------------
+
+        services.AddScoped<
+            IStorageProvider,
+            LocalStorageProvider>();
+
+
+        // ---------------------------------------------------------
+        // CORS
+        // السماح لـ Mebabl Console بالوصول إلى API
+        // ---------------------------------------------------------
 
         services.AddCors(options =>
-{
-    options.AddPolicy("MebablConsole", policy =>
-    {
-        policy
-            .WithOrigins(
-                "http://localhost:3000",
-                "https://mebabl.com"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    });
-});
+        {
+            options.AddPolicy(
+                "MebablConsole",
+                policy =>
+                {
+                    policy
+                        .WithOrigins(
+                            "http://localhost:3000",
+                            "https://mebabl.com"
+                        )
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials();
+                });
+        });
+
 
         return services;
     }

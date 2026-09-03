@@ -4,6 +4,7 @@ using System.Text.Json;
 using Mebabl.Platform.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Mebabl.Platform.Infrastructure.Migrations
 {
     [DbContext(typeof(PlatformDbContext))]
-    partial class PlatformDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902012500_AddLiveStreamingV1")]
+    partial class AddLiveStreamingV1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1593,42 +1596,19 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTime?>("EndedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("LiveStreamId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("PublishTokenExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("PublishTokenHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<Guid>("PublisherUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("StartedAt")
+                    b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("LiveStreamId")
-                        .IsUnique()
-                        .HasFilter("\"Status\" <> 2");
-
-                    b.HasIndex("PublishTokenHash")
-                        .IsUnique();
-
-                    b.HasIndex("LiveStreamId", "PublisherUserId");
 
                     b.HasIndex("LiveStreamId", "Status");
 
@@ -1649,8 +1629,7 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.Property<string>("KeyHash")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("LiveStreamId")
                         .HasColumnType("uuid");
