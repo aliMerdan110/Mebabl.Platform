@@ -29,6 +29,7 @@ using Mebabl.Platform.Infrastructure.Services.PasswordReset;
 using Mebabl.Platform.Application.Common.Options;
 using Mebabl.Platform.Application.Services.Email;
 using Mebabl.Platform.Infrastructure.Services.Email;
+using Mebabl.Platform.Application.Features.Live.Media.Srs;
 
 // Live Streaming
 using Mebabl.Platform.Application.Common.Services.Authorization;
@@ -163,6 +164,11 @@ services.AddScoped<
 // Infrastructure/DependencyInjection/ServiceCollectionExtensions.cs
 // Live Token Service
 
+// Infrastructure/DependencyInjection/ServiceCollectionExtensions.cs
+
+services.AddScoped<
+    ISrsPublishAuthorizationService,
+    SrsPublishAuthorizationService>();
 
 
         // ---------------------------------------------------------

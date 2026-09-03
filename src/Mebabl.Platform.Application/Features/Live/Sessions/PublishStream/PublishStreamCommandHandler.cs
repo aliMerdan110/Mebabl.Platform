@@ -165,11 +165,14 @@ public sealed class PublishStreamCommandHandler
         // لا يتم إعادة Hash للمستخدم.
         // ---------------------------------------------------------
 
-        return new PublishStreamResponse(
-            stream.Id,
-            session.Id,
-            "rtmp://live.mebabl.com/live",
-            rawPublishToken,
-            publishTokenExpiresAt);
+        var rtmpUrl =
+    $"rtmp://live.mebabl.com/live/{session.Id}?token={Uri.EscapeDataString(rawPublishToken)}";
+
+return new PublishStreamResponse(
+    stream.Id,
+    session.Id,
+    rtmpUrl,
+    rawPublishToken,
+    publishTokenExpiresAt);
     }
 }
