@@ -1,5 +1,3 @@
-// Application/Features/Live/Media/Srs/SrsPublishAuthorizationService.cs
-
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Features.Live.Sessions.ValidatePublishToken;
 using Mebabl.Platform.Domain.Live.Enums;
@@ -27,16 +25,25 @@ public sealed class SrsPublishAuthorizationService
         CancellationToken cancellationToken = default)
     {
         // ---------------------------------------------------------
-        // SRS sends:
+        // WHIP sends:
         //
-        // stream = sessionId
-        // param  = ?token=...
+        // stream = livestream
+        //
+        // param =
+        // app=live&
+        // stream=livestream&
+        // sessionId=...&
+        // token=...
         // ---------------------------------------------------------
 
-        if (!Guid.TryParse(request.Stream, out var sessionId))
+        var sessionIdText =
+            ExtractParam(request.Param, "sessionId");
+
+        if (!Guid.TryParse(sessionIdText, out var sessionId))
             return false;
 
-        var token = ExtractToken(request.Param);
+        var token =
+            ExtractParam(request.Param, "token");
 
         if (string.IsNullOrWhiteSpace(token))
             return false;
@@ -71,7 +78,7 @@ public sealed class SrsPublishAuthorizationService
             return false;
 
         // ---------------------------------------------------------
-        // SRS connection is now authorized.
+        // Publishing is authorized.
         // ---------------------------------------------------------
 
         return true;
@@ -81,7 +88,10 @@ public sealed class SrsPublishAuthorizationService
         SrsPublishRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!Guid.TryParse(request.Stream, out var sessionId))
+        var sessionIdText =
+            ExtractParam(request.Param, "sessionId");
+
+        if (!Guid.TryParse(sessionIdText, out var sessionId))
             return;
 
         var session = await _dbContext.LiveStreamSessions
@@ -110,7 +120,9 @@ public sealed class SrsPublishAuthorizationService
             cancellationToken);
     }
 
-    private static string? ExtractToken(string? param)
+    private static string? ExtractParam(
+        string? param,
+        string key)
     {
         if (string.IsNullOrWhiteSpace(param))
             return null;
@@ -128,7 +140,7 @@ public sealed class SrsPublishAuthorizationService
                 continue;
 
             if (!parts[0].Equals(
-                    "token",
+                    key,
                     StringComparison.OrdinalIgnoreCase))
             {
                 continue;
