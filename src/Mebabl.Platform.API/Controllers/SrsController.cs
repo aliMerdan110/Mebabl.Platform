@@ -26,9 +26,9 @@ public sealed class SrsController : ControllerBase
     // ------------------------------------------------------------
 
     [HttpPost("on-publish")]
-    public async Task<IActionResult> OnPublish(
-        [FromForm] SrsPublishRequest request,
-        CancellationToken cancellationToken)
+   public async Task<IActionResult> OnPublish(
+    [FromBody] SrsPublishRequest request,
+    CancellationToken cancellationToken)
     {
         var allowed =
             await _authorization.AuthorizePublishAsync(
@@ -49,7 +49,7 @@ public sealed class SrsController : ControllerBase
 
     [HttpPost("on-unpublish")]
     public async Task<IActionResult> OnUnpublish(
-        [FromForm] SrsPublishRequest request,
+        [FromBody] SrsPublishRequest request,
         CancellationToken cancellationToken)
     {
         await _authorization.HandleUnpublishAsync(
