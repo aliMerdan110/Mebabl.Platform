@@ -1,10 +1,10 @@
-// Application/Features/Live/Media/Srs/SrsPublishRequest.cs
+using System.Text.Json.Serialization;
 
 namespace Mebabl.Platform.Application.Features.Live.Media.Srs;
 
 public sealed record SrsPublishRequest(
     string Action,
-    string ClientId,
+    [property: JsonPropertyName("client_id")] string ClientId,
     string Ip,
     string Vhost,
     string App,
