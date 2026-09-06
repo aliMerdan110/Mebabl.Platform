@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -18,7 +18,7 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                 BEGIN
                     FOR app IN
                         SELECT "Id"
-                        FROM "PlatformApplications"
+                        FROM "Applications"
                     LOOP
                         SELECT "Id"
                         INTO owner_role_id
