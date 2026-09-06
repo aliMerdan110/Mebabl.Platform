@@ -8,7 +8,8 @@ namespace Mebabl.Platform.Infrastructure.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("""
+            migrationBuilder.Sql(
+                """
                 DO $$
                 DECLARE
                     app RECORD;
@@ -114,20 +115,20 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                             INSERT INTO "RolePermissions"
                             (
                                 "Id",
-"RoleId",
-"PermissionId",
-"IsDeleted",
-"CreatedAt",
-"UpdatedAt"
+                                "RoleId",
+                                "PermissionId",
+                                "IsDeleted",
+                                "CreatedAt",
+                                "UpdatedAt"
                             )
                             VALUES
                             (
                                 gen_random_uuid(),
-owner_role_id,
-live_view_id,
-FALSE,
-NOW(),
-NOW()
+                                owner_role_id,
+                                live_view_id,
+                                FALSE,
+                                NOW(),
+                                NOW()
                             );
                         END IF;
 
@@ -142,30 +143,32 @@ NOW()
                             INSERT INTO "RolePermissions"
                             (
                                 "Id",
-"RoleId",
-"PermissionId",
-"IsDeleted",
-"CreatedAt",
-"UpdatedAt"
+                                "RoleId",
+                                "PermissionId",
+                                "IsDeleted",
+                                "CreatedAt",
+                                "UpdatedAt"
                             )
                             VALUES
                             (
-                               gen_random_uuid(),
-owner_role_id,
-live_view_id,
-FALSE,
-NOW(),
-NOW()
+                                gen_random_uuid(),
+                                owner_role_id,
+                                live_publish_id,
+                                FALSE,
+                                NOW(),
+                                NOW()
                             );
                         END IF;
                     END LOOP;
                 END $$;
-                """);
+                """
+            );
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("""
+            migrationBuilder.Sql(
+                """
                 DELETE FROM "RolePermissions" rp
                 USING "Permissions" p
                 WHERE rp."PermissionId" = p."Id"
@@ -173,7 +176,8 @@ NOW()
 
                 DELETE FROM "Permissions"
                 WHERE LOWER("Code") IN ('live.view', 'live.publish');
-                """);
+                """
+            );
         }
     }
 }
