@@ -1,3 +1,4 @@
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Features.Live.Sessions.ValidatePublishToken;
 using Mebabl.Platform.Domain.Live.Enums;
@@ -24,18 +25,6 @@ public sealed class SrsPublishAuthorizationService
         SrsPublishRequest request,
         CancellationToken cancellationToken = default)
     {
-        // ---------------------------------------------------------
-        // WHIP sends:
-        //
-        // stream = livestream
-        //
-        // param =
-        // app=live&
-        // stream=livestream&
-        // sessionId=...&
-        // token=...
-        // ---------------------------------------------------------
-
         var sessionIdText =
             ExtractParam(request.Param, "sessionId");
 
@@ -48,10 +37,6 @@ public sealed class SrsPublishAuthorizationService
         if (string.IsNullOrWhiteSpace(token))
             return false;
 
-        // ---------------------------------------------------------
-        // Validate temporary Publish Token.
-        // ---------------------------------------------------------
-
         var valid = await _mediator.Send(
             new ValidatePublishTokenCommand(
                 sessionId,
@@ -60,10 +45,6 @@ public sealed class SrsPublishAuthorizationService
 
         if (!valid)
             return false;
-
-        // ---------------------------------------------------------
-        // Session must belong to a real LiveStream.
-        // ---------------------------------------------------------
 
         var session = await _dbContext.LiveStreamSessions
             .Include(x => x.LiveStream)
@@ -74,12 +55,23 @@ public sealed class SrsPublishAuthorizationService
         if (session is null)
             return false;
 
-        if (session.Status == LiveSessionStatus.Ended)
+        if (session.Status is
+            LiveSessionStatus.Live or
+            LiveSessionStatus.Ended)
+        {
             return false;
+        }
 
-        // ---------------------------------------------------------
-        // Publishing is authorized.
-        // ---------------------------------------------------------
+        var now = DateTime.UtcNow;
+
+        session.Status = LiveSessionStatus.Live;
+        session.StartedAt = now;
+
+        session.LiveStream.Status = LiveStreamStatus.Live;
+        session.LiveStream.UpdatedAt = now;
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
 
         return true;
     }
@@ -106,15 +98,13 @@ public sealed class SrsPublishAuthorizationService
         if (session.Status == LiveSessionStatus.Ended)
             return;
 
-        // ---------------------------------------------------------
-        // SRS confirms that publishing ended.
-        // ---------------------------------------------------------
+        var now = DateTime.UtcNow;
 
         session.Status = LiveSessionStatus.Ended;
-        session.EndedAt = DateTime.UtcNow;
+        session.EndedAt = now;
 
         session.LiveStream.Status = LiveStreamStatus.Offline;
-        session.LiveStream.UpdatedAt = DateTime.UtcNow;
+        session.LiveStream.UpdatedAt = now;
 
         await _dbContext.SaveChangesAsync(
             cancellationToken);

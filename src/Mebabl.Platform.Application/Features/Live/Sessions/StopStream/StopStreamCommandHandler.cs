@@ -1,3 +1,4 @@
+
 // Application/Features/Live/Sessions/StopStream/StopStreamCommandHandler.cs
 
 using MediatR;
@@ -33,19 +34,11 @@ public sealed class StopStreamCommandHandler
         StopStreamCommand request,
         CancellationToken cancellationToken)
     {
-        // ---------------------------------------------------------
-        // Authentication
-        // ---------------------------------------------------------
-
         if (!_currentUser.IsAuthenticated)
             throw new UnauthorizedAccessException();
 
         var applicationId = _currentUser.ApplicationId;
         var userId = _currentUser.UserId;
-
-        // ---------------------------------------------------------
-        // Load Session + Stream
-        // ---------------------------------------------------------
 
         var session = await _dbContext.LiveStreamSessions
             .Include(x => x.LiveStream)
@@ -58,13 +51,6 @@ public sealed class StopStreamCommandHandler
         if (session is null)
             throw new KeyNotFoundException(
                 "Live stream session was not found.");
-
-        // ---------------------------------------------------------
-        // Authorization
-        //
-        // Publisher نفسه يستطيع إيقاف جلسته.
-        // live.manage يمكن أن يسمح بإدارة الجلسات لاحقاً.
-        // ---------------------------------------------------------
 
         if (session.PublisherUserId != userId)
         {
@@ -79,28 +65,17 @@ public sealed class StopStreamCommandHandler
                     "The current user is not allowed to stop this session.");
         }
 
-        // ---------------------------------------------------------
-        // Already Ended
-        // ---------------------------------------------------------
-
         if (session.Status == LiveSessionStatus.Ended)
             return;
 
         var now = _clock.UtcNow;
 
-        // ---------------------------------------------------------
-        // End Session
-        //
-        // بمجرد Ended يصبح Publish Token غير صالح.
-        // ---------------------------------------------------------
-
         session.Status = LiveSessionStatus.Ended;
         session.EndedAt = now;
 
-        session.LiveStream.Status = LiveStreamStatus.Ended;
+        session.LiveStream.Status = LiveStreamStatus.Offline;
         session.LiveStream.UpdatedAt = now;
 
-        await _dbContext.SaveChangesAsync(
-            cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

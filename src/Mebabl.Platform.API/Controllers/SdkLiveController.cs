@@ -1,3 +1,4 @@
+
 // API/Controllers/SdkLiveController.cs
 
 using MediatR;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Mebabl.Platform.Application.Features.Live.Sessions.PublishStream;
 using Mebabl.Platform.Application.Features.Live.Sessions.StopStream;
+using Mebabl.Platform.Application.Features.Live.Streams.GetStreams;
 
 namespace Mebabl.Platform.API.Controllers;
 
@@ -18,6 +20,21 @@ public sealed class SdkLiveController : ControllerBase
     public SdkLiveController(IMediator mediator)
     {
         _mediator = mediator;
+    }
+
+    // ------------------------------------------------------------
+    // Get Live Streams
+    // ------------------------------------------------------------
+
+    [HttpGet("streams")]
+    public async Task<IActionResult> GetStreams(
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new GetStreamsQuery(),
+            cancellationToken);
+
+        return Ok(result);
     }
 
     // ------------------------------------------------------------
