@@ -114,18 +114,20 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                             INSERT INTO "RolePermissions"
                             (
                                 "Id",
-                                "RoleId",
-                                "PermissionId",
-                                "CreatedAt",
-                                "UpdatedAt"
+"RoleId",
+"PermissionId",
+"IsDeleted",
+"CreatedAt",
+"UpdatedAt"
                             )
                             VALUES
                             (
                                 gen_random_uuid(),
-                                owner_role_id,
-                                live_view_id,
-                                NOW(),
-                                NOW()
+owner_role_id,
+live_view_id,
+FALSE,
+NOW(),
+NOW()
                             );
                         END IF;
 
@@ -140,18 +142,20 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                             INSERT INTO "RolePermissions"
                             (
                                 "Id",
-                                "RoleId",
-                                "PermissionId",
-                                "CreatedAt",
-                                "UpdatedAt"
+"RoleId",
+"PermissionId",
+"IsDeleted",
+"CreatedAt",
+"UpdatedAt"
                             )
                             VALUES
                             (
-                                gen_random_uuid(),
-                                owner_role_id,
-                                live_publish_id,
-                                NOW(),
-                                NOW()
+                               gen_random_uuid(),
+owner_role_id,
+live_view_id,
+FALSE,
+NOW(),
+NOW()
                             );
                         END IF;
                     END LOOP;
