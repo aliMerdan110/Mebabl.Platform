@@ -25,8 +25,10 @@ public sealed class PlatformDbContextFactory
             .Build();
 
         var connectionString =
-            configuration.GetConnectionString("DefaultConnection");
+    Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? configuration.GetConnectionString("DefaultConnection");
 
+    
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
