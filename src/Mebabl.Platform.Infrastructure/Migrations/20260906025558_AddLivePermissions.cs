@@ -49,6 +49,7 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                                 "Code",
                                 "Description",
                                 "IsActive",
+                                "IsDeleted",
                                 "CreatedAt",
                                 "UpdatedAt"
                             )
@@ -60,6 +61,7 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                                 'live.view',
                                 'live.view',
                                 TRUE,
+                                FALSE,
                                 NOW(),
                                 NOW()
                             );
@@ -83,6 +85,7 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                                 "Code",
                                 "Description",
                                 "IsActive",
+                                "IsDeleted",
                                 "CreatedAt",
                                 "UpdatedAt"
                             )
@@ -94,6 +97,7 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                                 'live.publish',
                                 'live.publish',
                                 TRUE,
+                                FALSE,
                                 NOW(),
                                 NOW()
                             );
