@@ -48,7 +48,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                                 "Name",
                                 "Code",
                                 "Description",
-                                "IsActive"
+                                "IsActive",
+                                "CreatedAt",
+                                "UpdatedAt"
                             )
                             VALUES
                             (
@@ -57,7 +59,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                                 'live.view',
                                 'live.view',
                                 'live.view',
-                                TRUE
+                                TRUE,
+                                NOW(),
+                                NOW()
                             );
                         END IF;
 
@@ -78,7 +82,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                                 "Name",
                                 "Code",
                                 "Description",
-                                "IsActive"
+                                "IsActive",
+                                "CreatedAt",
+                                "UpdatedAt"
                             )
                             VALUES
                             (
@@ -87,7 +93,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                                 'live.publish',
                                 'live.publish',
                                 'live.publish',
-                                TRUE
+                                TRUE,
+                                NOW(),
+                                NOW()
                             );
                         END IF;
 
