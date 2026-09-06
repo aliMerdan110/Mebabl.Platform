@@ -37,32 +37,20 @@ public sealed class PublishStreamCommandHandler
         PublishStreamCommand request,
         CancellationToken cancellationToken)
     {
-        // ---------------------------------------------------------
-        // Application User Authentication
-        // ---------------------------------------------------------
-
         if (!_currentUser.IsAuthenticated)
             throw new UnauthorizedAccessException();
 
         var applicationId = _currentUser.ApplicationId;
         var userId = _currentUser.UserId;
 
-        // ---------------------------------------------------------
-        // Application-defined Authorization
-        // ---------------------------------------------------------
-
         var allowed = await _authorization.CanPublishAsync(
-    applicationId,
-    userId,
-    cancellationToken);
+            applicationId,
+            userId,
+            cancellationToken);
 
         if (!allowed)
             throw new UnauthorizedAccessException(
                 "The current user is not allowed to publish.");
-
-        // ---------------------------------------------------------
-        // Find an available stream
-        // ---------------------------------------------------------
 
         var stream = await _dbContext.LiveStreams
             .FirstOrDefaultAsync(
@@ -71,10 +59,6 @@ public sealed class PublishStreamCommandHandler
                     x.Status != LiveStreamStatus.Live,
                 cancellationToken);
 
-        // ---------------------------------------------------------
-        // Create stream automatically when none exists
-        // ---------------------------------------------------------
-
         if (stream is null)
         {
             var nowForStream = _clock.UtcNow;
@@ -82,49 +66,17 @@ public sealed class PublishStreamCommandHandler
             stream = new LiveStream
             {
                 Id = Guid.NewGuid(),
-
                 ApplicationId = applicationId,
-
                 Name = $"live-{userId:N}",
-
                 Title = "Live Stream",
-
                 Description = null,
-
                 Status = LiveStreamStatus.Offline,
-
                 CreatedAt = nowForStream,
-
                 UpdatedAt = nowForStream
             };
 
-            var rawStreamKey = Convert.ToBase64String(
-                RandomNumberGenerator.GetBytes(32));
-
-            var keyHash = Convert.ToHexString(
-                SHA256.HashData(
-                    Encoding.UTF8.GetBytes(rawStreamKey)));
-
-            stream.Credentials.Add(
-                new StreamCredential
-                {
-                    Id = Guid.NewGuid(),
-
-                    LiveStreamId = stream.Id,
-
-                    KeyHash = keyHash,
-
-                    IsActive = true,
-
-                    CreatedAt = nowForStream
-                });
-
             _dbContext.LiveStreams.Add(stream);
         }
-
-        // ---------------------------------------------------------
-        // Active Session
-        // ---------------------------------------------------------
 
         var activeSession = await _dbContext.LiveStreamSessions
             .FirstOrDefaultAsync(
@@ -137,24 +89,35 @@ public sealed class PublishStreamCommandHandler
             throw new InvalidOperationException(
                 "The live stream already has an active session.");
 
-        // ---------------------------------------------------------
-        // Active Stream Credential
-        // ---------------------------------------------------------
-
-        var credentialExists = await _dbContext.StreamCredentials
-            .AnyAsync(
+        var credential = await _dbContext.StreamCredentials
+            .FirstOrDefaultAsync(
                 x =>
                     x.LiveStreamId == stream.Id &&
                     x.IsActive,
                 cancellationToken);
 
-        if (!credentialExists)
-            throw new InvalidOperationException(
-                "No active stream credential exists.");
+        if (credential is null)
+        {
+            var nowForCredential = _clock.UtcNow;
 
-        // ---------------------------------------------------------
-        // Generate Publish Token
-        // ---------------------------------------------------------
+            var rawStreamKey = Convert.ToBase64String(
+                RandomNumberGenerator.GetBytes(32));
+
+            var keyHash = Convert.ToHexString(
+                SHA256.HashData(
+                    Encoding.UTF8.GetBytes(rawStreamKey)));
+
+            credential = new StreamCredential
+            {
+                Id = Guid.NewGuid(),
+                LiveStreamId = stream.Id,
+                KeyHash = keyHash,
+                IsActive = true,
+                CreatedAt = nowForCredential
+            };
+
+            _dbContext.StreamCredentials.Add(credential);
+        }
 
         var rawPublishToken =
             _publishTokenService.GenerateToken();
@@ -163,37 +126,21 @@ public sealed class PublishStreamCommandHandler
             _publishTokenService.HashToken(
                 rawPublishToken);
 
-        // ---------------------------------------------------------
-        // Publish Token Lifetime
-        // ---------------------------------------------------------
-
         var now = _clock.UtcNow;
 
         var publishTokenExpiresAt =
             now.AddMinutes(15);
 
-        // ---------------------------------------------------------
-        // Create Session
-        // ---------------------------------------------------------
-
         var session = new LiveStreamSession
         {
             Id = Guid.NewGuid(),
-
             LiveStreamId = stream.Id,
-
             PublisherUserId = userId,
-
             PublishTokenHash = publishTokenHash,
-
             PublishTokenExpiresAt = publishTokenExpiresAt,
-
             Status = LiveSessionStatus.Starting,
-
             CreatedAt = now,
-
             StartedAt = null,
-
             EndedAt = null
         };
 
@@ -204,10 +151,6 @@ public sealed class PublishStreamCommandHandler
 
         await _dbContext.SaveChangesAsync(
             cancellationToken);
-
-        // ---------------------------------------------------------
-        // WHIP URL
-        // ---------------------------------------------------------
 
         var whipUrl =
             $"https://live.mebabl.com/rtc/v1/whip/" +
