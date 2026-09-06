@@ -22,13 +22,13 @@ public sealed class SrsController : ControllerBase
     // ------------------------------------------------------------
     // SRS -> Mebabl
     //
-    // Called before SRS accepts an RTMP publisher.
+    // Called before SRS accepts a publisher.
     // ------------------------------------------------------------
 
     [HttpPost("on-publish")]
-   public async Task<IActionResult> OnPublish(
-    [FromBody] SrsPublishRequest request,
-    CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPublish(
+        [FromBody] SrsPublishRequest request,
+        CancellationToken cancellationToken)
     {
         var allowed =
             await _authorization.AuthorizePublishAsync(
@@ -36,9 +36,14 @@ public sealed class SrsController : ControllerBase
                 cancellationToken);
 
         if (!allowed)
-            return StatusCode(StatusCodes.Status403Forbidden);
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { code = 1 });
+        }
 
-        return Ok();
+        // SRS requires a non-empty successful response.
+        return Ok(new { code = 0 });
     }
 
     // ------------------------------------------------------------
@@ -56,6 +61,6 @@ public sealed class SrsController : ControllerBase
             request,
             cancellationToken);
 
-        return Ok();
+        return Ok(new { code = 0 });
     }
 }
