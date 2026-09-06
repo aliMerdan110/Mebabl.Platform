@@ -1,6 +1,3 @@
-
-// API/Controllers/SdkLiveController.cs
-
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,12 +40,10 @@ public sealed class SdkLiveController : ControllerBase
 
     [HttpPost("publish")]
     public async Task<IActionResult> Publish(
-        [FromBody] PublishStreamRequest request,
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(
-            new PublishStreamCommand(
-                request.StreamId),
+            new PublishStreamCommand(),
             cancellationToken);
 
         return Ok(result);
@@ -71,9 +66,6 @@ public sealed class SdkLiveController : ControllerBase
         return NoContent();
     }
 }
-
-public sealed record PublishStreamRequest(
-    Guid StreamId);
 
 public sealed record StopStreamRequest(
     Guid SessionId);

@@ -1,4 +1,3 @@
-// Infrastructure/Live/LiveAuthorizationService.cs
 
 using Mebabl.Platform.Application.Common.Services.Authorization;
 using Mebabl.Platform.Application.Services.Live;
@@ -18,11 +17,8 @@ public sealed class LiveAuthorizationService : ILiveAuthorizationService
     public Task<bool> CanPublishAsync(
         Guid applicationId,
         Guid userId,
-        Guid streamId,
         CancellationToken cancellationToken = default)
     {
-        // صلاحية المستخدم تأتي من Application.
-        // Mebabl لا يفترض أن Developer هو broadcaster.
         return _permissionChecker.HasPermissionAsync(
             applicationId,
             userId,

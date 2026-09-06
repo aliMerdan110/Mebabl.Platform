@@ -1,5 +1,5 @@
-// Application/Features/Live/Sessions/PublishStream/PublishStreamCommandHandler.cs
-
+using System.Security.Cryptography;
+using System.Text;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
@@ -48,33 +48,79 @@ public sealed class PublishStreamCommandHandler
         var userId = _currentUser.UserId;
 
         // ---------------------------------------------------------
-        // Load Stream
+        // Application-defined Authorization
+        // ---------------------------------------------------------
+
+        var allowed = await _authorization.CanPublishAsync(
+    applicationId,
+    userId,
+    cancellationToken);
+
+        if (!allowed)
+            throw new UnauthorizedAccessException(
+                "The current user is not allowed to publish.");
+
+        // ---------------------------------------------------------
+        // Find an available stream
         // ---------------------------------------------------------
 
         var stream = await _dbContext.LiveStreams
             .FirstOrDefaultAsync(
                 x =>
-                    x.Id == request.StreamId &&
-                    x.ApplicationId == applicationId,
+                    x.ApplicationId == applicationId &&
+                    x.Status != LiveStreamStatus.Live,
                 cancellationToken);
 
+        // ---------------------------------------------------------
+        // Create stream automatically when none exists
+        // ---------------------------------------------------------
+
         if (stream is null)
-            throw new KeyNotFoundException(
-                "Live stream was not found.");
+        {
+            var nowForStream = _clock.UtcNow;
 
-        // ---------------------------------------------------------
-        // Application-defined Authorization
-        // ---------------------------------------------------------
+            stream = new LiveStream
+            {
+                Id = Guid.NewGuid(),
 
-        var allowed = await _authorization.CanPublishAsync(
-            applicationId,
-            userId,
-            stream.Id,
-            cancellationToken);
+                ApplicationId = applicationId,
 
-        if (!allowed)
-            throw new UnauthorizedAccessException(
-                "The current user is not allowed to publish to this stream.");
+                Name = $"live-{userId:N}",
+
+                Title = "Live Stream",
+
+                Description = null,
+
+                Status = LiveStreamStatus.Offline,
+
+                CreatedAt = nowForStream,
+
+                UpdatedAt = nowForStream
+            };
+
+            var rawStreamKey = Convert.ToBase64String(
+                RandomNumberGenerator.GetBytes(32));
+
+            var keyHash = Convert.ToHexString(
+                SHA256.HashData(
+                    Encoding.UTF8.GetBytes(rawStreamKey)));
+
+            stream.Credentials.Add(
+                new StreamCredential
+                {
+                    Id = Guid.NewGuid(),
+
+                    LiveStreamId = stream.Id,
+
+                    KeyHash = keyHash,
+
+                    IsActive = true,
+
+                    CreatedAt = nowForStream
+                });
+
+            _dbContext.LiveStreams.Add(stream);
+        }
 
         // ---------------------------------------------------------
         // Active Session
@@ -117,11 +163,11 @@ public sealed class PublishStreamCommandHandler
             _publishTokenService.HashToken(
                 rawPublishToken);
 
-        var now = _clock.UtcNow;
-
         // ---------------------------------------------------------
         // Publish Token Lifetime
         // ---------------------------------------------------------
+
+        var now = _clock.UtcNow;
 
         var publishTokenExpiresAt =
             now.AddMinutes(15);
@@ -160,23 +206,21 @@ public sealed class PublishStreamCommandHandler
             cancellationToken);
 
         // ---------------------------------------------------------
-        // Return RAW Token
-        //
-        // لا يتم إعادة Hash للمستخدم.
+        // WHIP URL
         // ---------------------------------------------------------
-    var whipUrl =
-    $"https://live.mebabl.com/rtc/v1/whip/" +
-    $"?app=live" +
-    $"&stream=livestream" +
-    $"&sessionId={session.Id}" +
-    $"&token={Uri.EscapeDataString(rawPublishToken)}";
 
-return new PublishStreamResponse(
-    stream.Id,
-    session.Id,
-    whipUrl,
-    rawPublishToken,
-    publishTokenExpiresAt);
-        
+        var whipUrl =
+            $"https://live.mebabl.com/rtc/v1/whip/" +
+            $"?app=live" +
+            $"&stream=livestream" +
+            $"&sessionId={session.Id}" +
+            $"&token={Uri.EscapeDataString(rawPublishToken)}";
+
+        return new PublishStreamResponse(
+            stream.Id,
+            session.Id,
+            whipUrl,
+            rawPublishToken,
+            publishTokenExpiresAt);
     }
 }

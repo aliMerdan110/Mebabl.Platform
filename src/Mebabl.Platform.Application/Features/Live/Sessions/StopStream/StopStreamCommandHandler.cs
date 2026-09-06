@@ -53,16 +53,15 @@ public sealed class StopStreamCommandHandler
                 "Live stream session was not found.");
 
         if (session.PublisherUserId != userId)
-        {
-            var canManage = await _authorization.CanPublishAsync(
-                applicationId,
-                userId,
-                session.LiveStreamId,
-                cancellationToken);
+{
+    var allowed = await _authorization.CanPublishAsync(
+        applicationId,
+        userId,
+        cancellationToken);
 
-            if (!canManage)
-                throw new UnauthorizedAccessException(
-                    "The current user is not allowed to stop this session.");
+    if (!allowed)
+        throw new UnauthorizedAccessException(
+            "The current user is not allowed to stop this session.");
         }
 
         if (session.Status == LiveSessionStatus.Ended)
