@@ -115,13 +115,17 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                             (
                                 "Id",
                                 "RoleId",
-                                "PermissionId"
+                                "PermissionId",
+                                "CreatedAt",
+                                "UpdatedAt"
                             )
                             VALUES
                             (
                                 gen_random_uuid(),
                                 owner_role_id,
-                                live_view_id
+                                live_view_id,
+                                NOW(),
+                                NOW()
                             );
                         END IF;
 
@@ -137,13 +141,17 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                             (
                                 "Id",
                                 "RoleId",
-                                "PermissionId"
+                                "PermissionId",
+                                "CreatedAt",
+                                "UpdatedAt"
                             )
                             VALUES
                             (
                                 gen_random_uuid(),
                                 owner_role_id,
-                                live_publish_id
+                                live_publish_id,
+                                NOW(),
+                                NOW()
                             );
                         END IF;
                     END LOOP;
