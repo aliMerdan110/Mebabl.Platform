@@ -14,19 +14,24 @@ public sealed class PlatformDbContextFactory
         var configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile(
-    "appsettings.json",
-    optional: false)
-.AddJsonFile(
-    "appsettings.Development.json",
-    optional: true)
-            .AddUserSecrets<PlatformDbContextFactory>(optional: true)
+                "appsettings.json",
+                optional: true)
+            .AddJsonFile(
+                "appsettings.Development.json",
+                optional: true)
+            .AddUserSecrets<PlatformDbContextFactory>(
+                optional: true)
             .AddEnvironmentVariables()
             .Build();
 
         var connectionString =
-            configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException(
-                "Connection string 'DefaultConnection' was not found.");
+            configuration.GetConnectionString("DefaultConnection");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings__DefaultConnection was not found.");
+        }
 
         var optionsBuilder =
             new DbContextOptionsBuilder<PlatformDbContext>();
@@ -43,10 +48,7 @@ public sealed class PlatformDbContextFactory
 internal sealed class DesignTimeCurrentUser : ICurrentUser
 {
     public Guid UserId => Guid.Empty;
-
     public Guid AccountId => Guid.Empty;
-
     public Guid ApplicationId => Guid.Empty;
-
     public bool IsAuthenticated => false;
 }
