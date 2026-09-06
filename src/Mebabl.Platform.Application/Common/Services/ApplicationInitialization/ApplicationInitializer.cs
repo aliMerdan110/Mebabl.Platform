@@ -45,30 +45,33 @@ public sealed class ApplicationInitializer
         _dbContext.Roles.AddRange(owner, admin, user);
 
         var permissions = new[]
-        {
-            "applications.read",
-            "applications.update",
+{
+    "applications.read",
+    "applications.update",
 
-            "users.read",
-            "users.create",
-            "users.update",
-            "users.delete",
+    "users.read",
+    "users.create",
+    "users.update",
+    "users.delete",
 
-            "roles.read",
-            "roles.create",
-            "roles.update",
-            "roles.delete",
+    "roles.read",
+    "roles.create",
+    "roles.update",
+    "roles.delete",
 
-            "permissions.read",
-            "permissions.create",
-            "permissions.update",
-            "permissions.delete",
+    "permissions.read",
+    "permissions.create",
+    "permissions.update",
+    "permissions.delete",
 
-            "credentials.read",
-            "credentials.create",
-            "credentials.enable",
-            "credentials.disable"
-        };
+    "credentials.read",
+    "credentials.create",
+    "credentials.enable",
+    "credentials.disable",
+
+    "live.view",
+    "live.publish"
+};
 
         var permissionEntities = permissions
             .Select(code => new Permission
