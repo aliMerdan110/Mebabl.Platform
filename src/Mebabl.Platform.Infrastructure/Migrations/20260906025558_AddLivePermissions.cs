@@ -113,11 +113,13 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         THEN
                             INSERT INTO "RolePermissions"
                             (
+                                "Id",
                                 "RoleId",
                                 "PermissionId"
                             )
                             VALUES
                             (
+                                gen_random_uuid(),
                                 owner_role_id,
                                 live_view_id
                             );
@@ -133,11 +135,13 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         THEN
                             INSERT INTO "RolePermissions"
                             (
+                                "Id",
                                 "RoleId",
                                 "PermissionId"
                             )
                             VALUES
                             (
+                                gen_random_uuid(),
                                 owner_role_id,
                                 live_publish_id
                             );
