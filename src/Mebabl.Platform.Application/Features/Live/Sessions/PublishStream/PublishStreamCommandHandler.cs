@@ -52,31 +52,33 @@ public sealed class PublishStreamCommandHandler
             throw new UnauthorizedAccessException(
                 "The current user is not allowed to publish.");
 
-        var stream = await _dbContext.LiveStreams
-            .FirstOrDefaultAsync(
-                x =>
-                    x.ApplicationId == applicationId &&
-                    x.Status != LiveStreamStatus.Live,
-                cancellationToken);
+        var streamName = $"live-{userId:N}";
 
-        if (stream is null)
-        {
-            var nowForStream = _clock.UtcNow;
+var stream = await _dbContext.LiveStreams
+    .FirstOrDefaultAsync(
+        x =>
+            x.ApplicationId == applicationId &&
+            x.Name == streamName,
+        cancellationToken);
 
-            stream = new LiveStream
-            {
-                Id = Guid.NewGuid(),
-                ApplicationId = applicationId,
-                Name = $"live-{userId:N}",
-                Title = "Live Stream",
-                Description = null,
-                Status = LiveStreamStatus.Offline,
-                CreatedAt = nowForStream,
-                UpdatedAt = nowForStream
-            };
+if (stream is null)
+{
+    var nowForStream = _clock.UtcNow;
 
-            _dbContext.LiveStreams.Add(stream);
-        }
+    stream = new LiveStream
+    {
+        Id = Guid.NewGuid(),
+        ApplicationId = applicationId,
+        Name = streamName,
+        Title = "Live Stream",
+        Description = null,
+        Status = LiveStreamStatus.Offline,
+        CreatedAt = nowForStream,
+        UpdatedAt = nowForStream
+    };
+
+    _dbContext.LiveStreams.Add(stream);
+}
 
         var activeSession = await _dbContext.LiveStreamSessions
             .FirstOrDefaultAsync(
