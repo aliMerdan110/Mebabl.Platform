@@ -134,9 +134,9 @@ public sealed class RegisterUserCommandHandler
 
         var consoleUrl = _consoleOptions.BaseUrl.TrimEnd('/');
 
-        var verificationUrl =
-            $"{consoleUrl}/sdk/verify-email?token={Uri.EscapeDataString(rawToken)}";
-
+      var verificationUrl =
+    $"{consoleUrl}/verify-email?token={Uri.EscapeDataString(rawToken)}";
+    
         await _emailService.SendAsync(
             account.Email,
             "Verify your email",
