@@ -1,11 +1,13 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Application.Features.Applications.MobileAppLinks;
 
 public sealed record CreateMobileAppLinkCommand(
+    Guid ApplicationId,
     string? AndroidPackageName,
     string? AndroidSha256CertificateFingerprint,
     string? IosBundleId,
@@ -17,6 +19,9 @@ public sealed class CreateMobileAppLinkCommandValidator
 {
     public CreateMobileAppLinkCommandValidator()
     {
+        RuleFor(x => x.ApplicationId)
+            .NotEmpty();
+
         RuleFor(x => x.AndroidPackageName)
             .MaximumLength(255);
 
@@ -35,31 +40,44 @@ public sealed class CreateMobileAppLinkCommandHandler
     : IRequestHandler<CreateMobileAppLinkCommand, Guid>
 {
     private readonly IApplicationDbContext _db;
-    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentDeveloper _currentDeveloper;
 
     public CreateMobileAppLinkCommandHandler(
         IApplicationDbContext db,
-        ICurrentApplication currentApplication)
+        ICurrentDeveloper currentDeveloper)
     {
         _db = db;
-        _currentApplication = currentApplication;
+        _currentDeveloper = currentDeveloper;
     }
 
     public async Task<Guid> Handle(
         CreateMobileAppLinkCommand request,
         CancellationToken cancellationToken)
     {
-        var applicationId = _currentApplication.ApplicationId;
+        var application = await _db.Applications
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x =>
+                    x.Id == request.ApplicationId &&
+                    x.DeveloperId == _currentDeveloper.DeveloperId,
+                cancellationToken);
+
+        if (application is null)
+            throw new KeyNotFoundException(
+                "Application not found.");
 
         var entity = new ApplicationMobileAppLink
         {
             Id = Guid.NewGuid(),
-            ApplicationId = applicationId,
-            AndroidPackageName = request.AndroidPackageName?.Trim(),
+            ApplicationId = request.ApplicationId,
+            AndroidPackageName =
+                request.AndroidPackageName?.Trim(),
             AndroidSha256CertificateFingerprint =
                 request.AndroidSha256CertificateFingerprint?.Trim(),
-            IosBundleId = request.IosBundleId?.Trim(),
-            IosTeamId = request.IosTeamId?.Trim(),
+            IosBundleId =
+                request.IosBundleId?.Trim(),
+            IosTeamId =
+                request.IosTeamId?.Trim(),
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

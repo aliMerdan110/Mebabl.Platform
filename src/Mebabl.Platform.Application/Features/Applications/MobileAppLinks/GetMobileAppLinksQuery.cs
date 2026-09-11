@@ -15,32 +15,44 @@ public sealed record MobileAppLinkDto(
     DateTime UpdatedAt
 );
 
-public sealed record GetMobileAppLinksQuery
-    : IRequest<MobileAppLinkDto?>;
+public sealed record GetMobileAppLinksQuery(
+    Guid ApplicationId
+) : IRequest<MobileAppLinkDto?>;
 
 public sealed class GetMobileAppLinksQueryHandler
     : IRequestHandler<GetMobileAppLinksQuery, MobileAppLinkDto?>
 {
     private readonly IApplicationDbContext _db;
-    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentDeveloper _currentDeveloper;
 
     public GetMobileAppLinksQueryHandler(
         IApplicationDbContext db,
-        ICurrentApplication currentApplication)
+        ICurrentDeveloper currentDeveloper)
     {
         _db = db;
-        _currentApplication = currentApplication;
+        _currentDeveloper = currentDeveloper;
     }
 
     public async Task<MobileAppLinkDto?> Handle(
         GetMobileAppLinksQuery request,
         CancellationToken cancellationToken)
     {
-        var applicationId = _currentApplication.ApplicationId;
+        var applicationExists = await _db.Applications
+            .AsNoTracking()
+            .AnyAsync(
+                x =>
+                    x.Id == request.ApplicationId &&
+                    x.DeveloperId == _currentDeveloper.DeveloperId,
+                cancellationToken);
+
+        if (!applicationExists)
+            throw new KeyNotFoundException(
+                "Application not found.");
 
         return await _db.ApplicationMobileAppLinks
             .AsNoTracking()
-            .Where(x => x.ApplicationId == applicationId)
+            .Where(x =>
+                x.ApplicationId == request.ApplicationId)
             .Select(x => new MobileAppLinkDto(
                 x.Id,
                 x.AndroidPackageName,
@@ -49,8 +61,7 @@ public sealed class GetMobileAppLinksQueryHandler
                 x.IosTeamId,
                 x.IsActive,
                 x.CreatedAt,
-                x.UpdatedAt
-            ))
+                x.UpdatedAt))
             .FirstOrDefaultAsync(cancellationToken);
     }
 }

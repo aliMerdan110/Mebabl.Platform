@@ -6,6 +6,7 @@ using Mebabl.Platform.Application.Common.Interfaces;
 namespace Mebabl.Platform.Application.Features.Applications.MobileAppLinks;
 
 public sealed record UpdateMobileAppLinkCommand(
+    Guid ApplicationId,
     Guid Id,
     string? AndroidPackageName,
     string? AndroidSha256CertificateFingerprint,
@@ -19,6 +20,9 @@ public sealed class UpdateMobileAppLinkCommandValidator
 {
     public UpdateMobileAppLinkCommandValidator()
     {
+        RuleFor(x => x.ApplicationId)
+            .NotEmpty();
+
         RuleFor(x => x.Id)
             .NotEmpty();
 
@@ -40,36 +44,55 @@ public sealed class UpdateMobileAppLinkCommandHandler
     : IRequestHandler<UpdateMobileAppLinkCommand>
 {
     private readonly IApplicationDbContext _db;
-    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentDeveloper _currentDeveloper;
 
     public UpdateMobileAppLinkCommandHandler(
         IApplicationDbContext db,
-        ICurrentApplication currentApplication)
+        ICurrentDeveloper currentDeveloper)
     {
         _db = db;
-        _currentApplication = currentApplication;
+        _currentDeveloper = currentDeveloper;
     }
 
     public async Task Handle(
         UpdateMobileAppLinkCommand request,
         CancellationToken cancellationToken)
     {
-        var applicationId = _currentApplication.ApplicationId;
+        var application = await _db.Applications
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x =>
+                    x.Id == request.ApplicationId &&
+                    x.DeveloperId == _currentDeveloper.DeveloperId,
+                cancellationToken);
+
+        if (application is null)
+            throw new KeyNotFoundException(
+                "Application not found.");
 
         var entity = await _db.ApplicationMobileAppLinks
             .FirstOrDefaultAsync(
-                x => x.Id == request.Id &&
-                     x.ApplicationId == applicationId,
+                x =>
+                    x.Id == request.Id &&
+                    x.ApplicationId == request.ApplicationId,
                 cancellationToken);
 
         if (entity is null)
-            throw new KeyNotFoundException("Mobile app link not found.");
+            throw new KeyNotFoundException(
+                "Mobile app link not found.");
 
-        entity.AndroidPackageName = request.AndroidPackageName?.Trim();
+        entity.AndroidPackageName =
+            request.AndroidPackageName?.Trim();
+
         entity.AndroidSha256CertificateFingerprint =
             request.AndroidSha256CertificateFingerprint?.Trim();
-        entity.IosBundleId = request.IosBundleId?.Trim();
-        entity.IosTeamId = request.IosTeamId?.Trim();
+
+        entity.IosBundleId =
+            request.IosBundleId?.Trim();
+
+        entity.IosTeamId =
+            request.IosTeamId?.Trim();
+
         entity.IsActive = request.IsActive;
         entity.UpdatedAt = DateTime.UtcNow;
 
