@@ -1,3 +1,4 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
@@ -10,18 +11,15 @@ public sealed class SdkResetPasswordCommandHandler
     : IRequestHandler<SdkResetPasswordCommand, SdkResetPasswordResponse>
 {
     private readonly IApplicationDbContext _dbContext;
-    private readonly ICurrentApplication _currentApplication;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IPasswordResetTokenService _tokenService;
 
     public SdkResetPasswordCommandHandler(
         IApplicationDbContext dbContext,
-        ICurrentApplication currentApplication,
         IPasswordHasher passwordHasher,
         IPasswordResetTokenService tokenService)
     {
         _dbContext = dbContext;
-        _currentApplication = currentApplication;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
     }
@@ -30,21 +28,7 @@ public sealed class SdkResetPasswordCommandHandler
         SdkResetPasswordCommand request,
         CancellationToken cancellationToken)
     {
-        // ------------------------------------------------------------
-        // Current Application
-        // ------------------------------------------------------------
-
-        var applicationId = _currentApplication.ApplicationId;
-
-        // ------------------------------------------------------------
-        // Hash Reset Token
-        // ------------------------------------------------------------
-
         var tokenHash = _tokenService.HashToken(request.Token);
-
-        // ------------------------------------------------------------
-        // Find Valid Reset Token
-        // ------------------------------------------------------------
 
         var resetToken =
             await _dbContext.ApplicationUserPasswordResetTokens
@@ -54,18 +38,13 @@ public sealed class SdkResetPasswordCommandHandler
                     x =>
                         x.TokenHash == tokenHash &&
                         x.UsedAt == null &&
-                        x.ExpiresAt > DateTime.UtcNow &&
-                        x.User.ApplicationId == applicationId,
+                        x.ExpiresAt > DateTime.UtcNow,
                     cancellationToken);
 
         if (resetToken is null)
         {
             throw new PasswordResetTokenInvalidException();
         }
-
-        // ------------------------------------------------------------
-        // Application User
-        // ------------------------------------------------------------
 
         var user = resetToken.User;
 
@@ -79,27 +58,15 @@ public sealed class SdkResetPasswordCommandHandler
             throw new UserAccountInactiveException();
         }
 
-        // ------------------------------------------------------------
-        // Change Password
-        // ------------------------------------------------------------
-
         user.Account.PasswordHash =
             _passwordHasher.Hash(request.NewPassword);
 
         user.Account.SecurityStamp =
             Guid.NewGuid().ToString();
 
-        // ------------------------------------------------------------
-        // Consume Current Reset Token
-        // ------------------------------------------------------------
-
         var now = DateTime.UtcNow;
 
         resetToken.UsedAt = now;
-
-        // ------------------------------------------------------------
-        // Revoke Other Password Reset Tokens
-        // ------------------------------------------------------------
 
         var otherResetTokens =
             await _dbContext.ApplicationUserPasswordResetTokens
@@ -114,10 +81,6 @@ public sealed class SdkResetPasswordCommandHandler
             token.UsedAt = now;
         }
 
-        // ------------------------------------------------------------
-        // Revoke Existing Refresh Tokens
-        // ------------------------------------------------------------
-
         var refreshTokens =
             await _dbContext.RefreshTokens
                 .Where(x =>
@@ -131,24 +94,12 @@ public sealed class SdkResetPasswordCommandHandler
             refreshToken.RevokedAt = now;
         }
 
-        // ------------------------------------------------------------
-        // Save
-        // ------------------------------------------------------------
-
         await _dbContext.SaveChangesAsync(cancellationToken);
-
-        // ------------------------------------------------------------
-        // Response
-        // ------------------------------------------------------------
 
         return new SdkResetPasswordResponse(
             "Password has been reset successfully.");
     }
 }
-
-// ------------------------------------------------------------
-// Exceptions
-// ------------------------------------------------------------
 
 public sealed class PasswordResetTokenInvalidException : Exception
 {
