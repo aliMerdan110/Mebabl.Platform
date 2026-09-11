@@ -12,7 +12,6 @@ public sealed class DeleteDocumentCommandHandler
     private readonly ICurrentApplication _currentApplication;
     private readonly IDocumentSecurityService _security;
 
-
     public DeleteDocumentCommandHandler(
         IApplicationDbContext dbContext,
         ICurrentApplication currentApplication,
@@ -23,38 +22,36 @@ public sealed class DeleteDocumentCommandHandler
         _security = security;
     }
 
-
     public async Task Handle(
         DeleteDocumentCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
+        if (!_currentApplication.IsAuthenticated ||
+            _currentApplication.ApplicationId == Guid.Empty)
+        {
             throw new UnauthorizedAccessException();
-
+        }
 
         var document = await _dbContext.Documents
             .Include(x => x.Collection)
             .FirstOrDefaultAsync(
                 x =>
-                    x.Id == request.Id &&
+                    x.Id == request.DocumentId &&
                     x.Collection.ApplicationId ==
-                    _currentApplication.ApplicationId,
+                        _currentApplication.ApplicationId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
-
         if (document is null)
-            throw new Exception("Document not found.");
-
+            throw new KeyNotFoundException("Document not found.");
 
         await _security.EnsureDeleteAsync(
             document.CollectionId,
             cancellationToken);
 
+        document.IsDeleted = true;
+        document.UpdatedAt = DateTime.UtcNow;
 
-        _dbContext.Documents.Remove(document);
-
-
-        await _dbContext.SaveChangesAsync(
-            cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

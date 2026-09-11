@@ -4,9 +4,9 @@ public sealed class QueryRequest
 {
     public Guid CollectionId { get; init; }
 
-    public List<QueryFilter> Filters { get; init; } = [];
+    public IReadOnlyList<QueryFilter> Filters { get; init; } = [];
 
-    public List<QuerySort> Sorts { get; init; } = [];
+    public IReadOnlyList<QuerySort> Sorts { get; init; } = [];
 
     public int Offset { get; init; }
 
@@ -14,5 +14,5 @@ public sealed class QueryRequest
 
     public string? Search { get; init; }
 
-    public List<string> Select { get; init; } = [];
+    public IReadOnlyList<string> Select { get; init; } = [];
 }

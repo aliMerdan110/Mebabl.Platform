@@ -2,47 +2,56 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Common.Security;
+using Mebabl.Platform.Application.Features.Database.Documents.DTOs;
 
 namespace Mebabl.Platform.Application.Features.Database.Documents.GetDocument;
 
 public sealed class GetDocumentQueryHandler
-    : IRequestHandler<GetDocumentQuery, GetDocumentResponse>
+    : IRequestHandler<GetDocumentQuery, DocumentResponse>
 {
-    private readonly IApplicationDbContext _context;
-    private readonly ICurrentUser _currentUser;
+    private readonly IApplicationDbContext _dbContext;
+    private readonly ICurrentApplication _currentApplication;
     private readonly IDocumentSecurityService _security;
 
     public GetDocumentQueryHandler(
-        IApplicationDbContext context,
-        ICurrentUser currentUser,
+        IApplicationDbContext dbContext,
+        ICurrentApplication currentApplication,
         IDocumentSecurityService security)
     {
-        _context = context;
-        _currentUser = currentUser;
+        _dbContext = dbContext;
+        _currentApplication = currentApplication;
         _security = security;
     }
 
-    public async Task<GetDocumentResponse> Handle(
+    public async Task<DocumentResponse> Handle(
         GetDocumentQuery request,
         CancellationToken cancellationToken)
     {
-        var document = await _context.Documents
+        if (!_currentApplication.IsAuthenticated ||
+            _currentApplication.ApplicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException();
+        }
+
+        var document = await _dbContext.Documents
+            .AsNoTracking()
             .Include(x => x.Collection)
             .FirstOrDefaultAsync(
                 x =>
-                    x.Id == request.Id &&
-                    x.Collection.ApplicationId == _currentUser.ApplicationId &&
+                    x.Id == request.DocumentId &&
+                    x.Collection.ApplicationId ==
+                        _currentApplication.ApplicationId &&
                     !x.IsDeleted,
                 cancellationToken);
 
         if (document is null)
-            throw new Exception("Document not found.");
+            throw new KeyNotFoundException("Document not found.");
 
         await _security.EnsureReadAsync(
             document.CollectionId,
             cancellationToken);
 
-        return new GetDocumentResponse(
+        return new DocumentResponse(
             document.Id,
             document.Key,
             document.Data,

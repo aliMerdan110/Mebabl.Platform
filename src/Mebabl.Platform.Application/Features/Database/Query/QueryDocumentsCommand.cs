@@ -5,10 +5,10 @@ namespace Mebabl.Platform.Application.Features.Database.Query;
 
 public sealed record QueryDocumentsCommand(
     Guid CollectionId,
-    IReadOnlyCollection<QueryFilter> Filters,
-    IReadOnlyCollection<QuerySort> Sorts,
-    int Offset,
-    int Limit,
+    IReadOnlyList<QueryFilter> Filters,
+    IReadOnlyList<QuerySort> Sorts,
+    int Offset = 0,
+    int Limit = 50,
     string? Search = null,
-    IReadOnlyCollection<string>? Select = null
-) : IRequest<IReadOnlyList<QueryDocumentsResponse>>;
+    IReadOnlyList<string>? Select = null)
+    : IRequest<IReadOnlyList<QueryDocumentsResponse>>;

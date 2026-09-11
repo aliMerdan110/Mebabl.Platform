@@ -2,17 +2,16 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Features.Database.Collections.DTOs;
-using Mebabl.Platform.Domain.Entities.Database;
 
-namespace Mebabl.Platform.Application.Features.Database.Collections.CreateCollection;
+namespace Mebabl.Platform.Application.Features.Database.Collections.UpdateCollection;
 
-public sealed class CreateCollectionCommandHandler
-    : IRequestHandler<CreateCollectionCommand, CollectionResponse>
+public sealed class UpdateCollectionCommandHandler
+    : IRequestHandler<UpdateCollectionCommand, CollectionResponse>
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentUser _currentUser;
 
-    public CreateCollectionCommandHandler(
+    public UpdateCollectionCommandHandler(
         IApplicationDbContext dbContext,
         ICurrentUser currentUser)
     {
@@ -21,7 +20,7 @@ public sealed class CreateCollectionCommandHandler
     }
 
     public async Task<CollectionResponse> Handle(
-        CreateCollectionCommand request,
+        UpdateCollectionCommand request,
         CancellationToken cancellationToken)
     {
         if (!_currentUser.IsAuthenticated ||
@@ -33,23 +32,29 @@ public sealed class CreateCollectionCommandHandler
         var applicationId = _currentUser.ApplicationId;
         var name = request.Name.Trim();
 
+        var collection = await _dbContext.Collections
+            .FirstOrDefaultAsync(
+                x =>
+                    x.Id == request.CollectionId &&
+                    x.ApplicationId == applicationId,
+                cancellationToken);
+
+        if (collection is null)
+            throw new KeyNotFoundException("Collection not found.");
+
         var exists = await _dbContext.Collections.AnyAsync(
-            x => x.ApplicationId == applicationId &&
-                 x.Name.ToLower() == name.ToLower(),
+            x =>
+                x.Id != request.CollectionId &&
+                x.ApplicationId == applicationId &&
+                x.Name.ToLower() == name.ToLower(),
             cancellationToken);
 
         if (exists)
             throw new InvalidOperationException(
                 "Collection already exists.");
 
-        var collection = new Collection
-        {
-            ApplicationId = applicationId,
-            Name = name,
-            Description = request.Description?.Trim() ?? string.Empty
-        };
-
-        _dbContext.Collections.Add(collection);
+        collection.Name = name;
+        collection.Description = request.Description?.Trim() ?? string.Empty;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 

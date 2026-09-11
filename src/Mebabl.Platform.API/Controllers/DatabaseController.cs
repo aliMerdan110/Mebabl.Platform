@@ -62,14 +62,26 @@ public async Task<IActionResult> UpdateDocument(
     JsonElement body,
     CancellationToken cancellationToken)
 {
+    var document = body.Deserialize<UpdateDocumentRequest>();
+
+    if (document is null)
+        return BadRequest();
+
     await Sender.Send(
         new UpdateDocumentCommand(
             id,
-            JsonDocument.Parse(body.GetRawText())),
+            document.Key,
+            JsonDocument.Parse(document.Data.GetRawText())),
         cancellationToken);
 
     return NoContent();
 }
+
+private sealed record UpdateDocumentRequest(
+    string Key,
+    JsonElement Data);
+
+    
 
 [HttpDelete("documents/{id:guid}")]
 public async Task<IActionResult> DeleteDocument(

@@ -10,10 +10,12 @@ public sealed class CreateCollectionCommandValidator
        
 
         RuleFor(x => x.Name)
-            .NotEmpty()
-            .MaximumLength(100);
+    .NotEmpty()
+    .MaximumLength(100)
+    .Must(x => !string.IsNullOrWhiteSpace(x))
+    .WithMessage("Collection name is required.");
 
-        RuleFor(x => x.Description)
-            .MaximumLength(500);
+RuleFor(x => x.Description)
+    .MaximumLength(500);
     }
 }

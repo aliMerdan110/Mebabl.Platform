@@ -7,5 +7,4 @@ public interface IQueryBuilder
     IQueryable<Document> Apply(
         IQueryable<Document> query,
         QueryRequest request);
-
 }

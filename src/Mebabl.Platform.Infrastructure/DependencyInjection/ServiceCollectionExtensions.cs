@@ -31,6 +31,7 @@ using Mebabl.Platform.Application.Services.Email;
 using Mebabl.Platform.Infrastructure.Services.Email;
 using Mebabl.Platform.Application.Features.Live.Media.Srs;
 
+
 // Live Streaming
 using Mebabl.Platform.Application.Common.Services.Authorization;
 using Mebabl.Platform.Application.Services.Live;
@@ -295,6 +296,11 @@ services.AddScoped<
             IQueryBuilder,
             PostgreSqlQueryBuilder>();
 
+        
+
+        // 
+             
+        // 
 
         // ---------------------------------------------------------
         // Storage

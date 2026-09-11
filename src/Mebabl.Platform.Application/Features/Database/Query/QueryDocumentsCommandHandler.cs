@@ -22,56 +22,47 @@ public sealed class QueryDocumentsCommandHandler
     {
         _dbContext = dbContext;
         _currentApplication = currentApplication;
-         _security = security;
-         _queryBuilder = queryBuilder;
+        _security = security;
+        _queryBuilder = queryBuilder;
     }
-
-   
 
     public async Task<IReadOnlyList<QueryDocumentsResponse>> Handle(
         QueryDocumentsCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
+        if (!_currentApplication.IsAuthenticated ||
+            _currentApplication.ApplicationId == Guid.Empty)
+        {
             throw new UnauthorizedAccessException();
-
+        }
 
         await _security.EnsureQueryAsync(
-    request.CollectionId,
-    cancellationToken);
-
+            request.CollectionId,
+            cancellationToken);
 
         var query = _dbContext.Documents
             .AsNoTracking()
             .Include(x => x.Collection)
             .Where(x =>
                 x.CollectionId == request.CollectionId &&
-                x.Collection.ApplicationId == _currentApplication.ApplicationId &&
+                x.Collection.ApplicationId ==
+                    _currentApplication.ApplicationId &&
                 !x.IsDeleted);
 
-
-         var builder = _queryBuilder.Apply(
-    query,
-    new QueryRequest
-    {
-        CollectionId = request.CollectionId,
-        Filters = request.Filters.ToList(),
-        Sorts = request.Sorts.ToList(),
-        Offset = request.Offset,
-        Limit = request.Limit,
-        Search = request.Search,
-        Select = request.Select?.ToList() ?? []
-    });
-        
-
-
-
-        
-
-
+        query = _queryBuilder.Apply(
+            query,
+            new QueryRequest
+            {
+                CollectionId = request.CollectionId,
+                Filters = request.Filters,
+                Sorts = request.Sorts,
+                Offset = request.Offset,
+                Limit = request.Limit,
+                Search = request.Search,
+                Select = request.Select ?? []
+            });
 
         return await query
-            
             .Select(x => new QueryDocumentsResponse(
                 x.Id,
                 x.Key,

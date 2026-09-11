@@ -2,12 +2,12 @@ using FluentValidation;
 
 namespace Mebabl.Platform.Application.Features.Database.Documents.DeleteDocument;
 
-public sealed class DeleteDocumentValidator
+public sealed class DeleteDocumentCommandValidator
     : AbstractValidator<DeleteDocumentCommand>
 {
-    public DeleteDocumentValidator()
+    public DeleteDocumentCommandValidator()
     {
-        RuleFor(x => x.Id)
+        RuleFor(x => x.DocumentId)
             .NotEmpty();
     }
 }
