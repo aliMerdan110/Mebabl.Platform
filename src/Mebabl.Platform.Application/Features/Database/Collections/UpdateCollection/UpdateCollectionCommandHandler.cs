@@ -5,6 +5,9 @@ using Mebabl.Platform.Application.Features.Database.Collections.DTOs;
 
 namespace Mebabl.Platform.Application.Features.Database.Collections.UpdateCollection;
 
+
+
+// تم التعديل 11/9  
 public sealed class UpdateCollectionCommandHandler
     : IRequestHandler<UpdateCollectionCommand, CollectionResponse>
 {
