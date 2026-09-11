@@ -91,6 +91,9 @@ public DbSet<LiveStreamSession> LiveStreamSessions => Set<LiveStreamSession>();
     ApplicationAuthenticationSettings
     => Set<ApplicationAuthenticationSettings>();
 
+    public DbSet<ApplicationMobileAppLink> ApplicationMobileAppLinks
+    => Set<ApplicationMobileAppLink>();
+
     
     public DbSet<Account> Accounts => Set<Account>();
 
