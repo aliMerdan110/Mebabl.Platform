@@ -53,8 +53,24 @@ public sealed class UpdateCollectionCommandHandler
             throw new InvalidOperationException(
                 "Collection already exists.");
 
+        var code = GenerateCode(name);
+
+        var codeExists = await _dbContext.Collections.AnyAsync(
+            x =>
+                x.Id != request.CollectionId &&
+                x.ApplicationId == applicationId &&
+                x.Code == code,
+            cancellationToken);
+
+        if (codeExists)
+        {
+            code = $"{code}_{Guid.NewGuid():N}";
+        }
+
         collection.Name = name;
-        collection.Description = request.Description?.Trim() ?? string.Empty;
+        collection.Code = code;
+        collection.Description =
+            request.Description?.Trim() ?? string.Empty;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -64,5 +80,19 @@ public sealed class UpdateCollectionCommandHandler
             collection.Name,
             collection.Description,
             collection.IsActive);
+    }
+
+    private static string GenerateCode(string name)
+    {
+        var code = new string(
+            name
+                .ToLowerInvariant()
+                .Select(c => char.IsLetterOrDigit(c) ? c : '_')
+                .ToArray());
+
+        while (code.Contains("__"))
+            code = code.Replace("__", "_");
+
+        return code.Trim('_');
     }
 }
