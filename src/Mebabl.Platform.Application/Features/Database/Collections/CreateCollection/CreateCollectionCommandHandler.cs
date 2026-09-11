@@ -66,6 +66,34 @@ public sealed class CreateCollectionCommandHandler
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        // Create default security rules for the new collection.
+        var permissions = new[]
+        {
+            "read",
+            "write",
+            "delete",
+            "query"
+        };
+
+        foreach (var permission in permissions)
+        {
+            var rule = new SecurityRule
+            {
+                Id = Guid.NewGuid(),
+                CollectionId = collection.Id,
+                Permission = permission,
+                CanRead = true,
+                CanWrite = true,
+                CanDelete = true,
+                CanQuery = true,
+                IsActive = true
+            };
+
+            _dbContext.SecurityRules.Add(rule);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
         return new CollectionResponse(
             collection.Id,
             collection.ApplicationId,
