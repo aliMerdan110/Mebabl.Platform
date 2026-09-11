@@ -42,10 +42,23 @@ public sealed class CreateCollectionCommandHandler
             throw new InvalidOperationException(
                 "Collection already exists.");
 
+        var code = GenerateCode(name);
+
+        var codeExists = await _dbContext.Collections.AnyAsync(
+            x => x.ApplicationId == applicationId &&
+                 x.Code == code,
+            cancellationToken);
+
+        if (codeExists)
+        {
+            code = $"{code}_{Guid.NewGuid():N}";
+        }
+
         var collection = new Collection
         {
             ApplicationId = applicationId,
             Name = name,
+            Code = code,
             Description = request.Description?.Trim() ?? string.Empty
         };
 
@@ -59,5 +72,19 @@ public sealed class CreateCollectionCommandHandler
             collection.Name,
             collection.Description,
             collection.IsActive);
+    }
+
+    private static string GenerateCode(string name)
+    {
+        var code = new string(
+            name
+                .ToLowerInvariant()
+                .Select(c => char.IsLetterOrDigit(c) ? c : '_')
+                .ToArray());
+
+        while (code.Contains("__"))
+            code = code.Replace("__", "_");
+
+        return code.Trim('_');
     }
 }
