@@ -10,16 +10,16 @@ public sealed class ListDocumentsQueryHandler
     : IRequestHandler<ListDocumentsQuery, IReadOnlyList<DocumentResponse>>
 {
     private readonly IApplicationDbContext _dbContext;
-    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentUser _currentUser;
     private readonly IDocumentSecurityService _security;
 
     public ListDocumentsQueryHandler(
         IApplicationDbContext dbContext,
-        ICurrentApplication currentApplication,
+        ICurrentUser currentUser,
         IDocumentSecurityService security)
     {
         _dbContext = dbContext;
-        _currentApplication = currentApplication;
+        _currentUser = currentUser;
         _security = security;
     }
 
@@ -27,8 +27,8 @@ public sealed class ListDocumentsQueryHandler
         ListDocumentsQuery request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated ||
-            _currentApplication.ApplicationId == Guid.Empty)
+        if (!_currentUser.IsAuthenticated ||
+            _currentUser.ApplicationId == Guid.Empty)
         {
             throw new UnauthorizedAccessException();
         }
@@ -37,7 +37,7 @@ public sealed class ListDocumentsQueryHandler
             .AnyAsync(
                 x =>
                     x.Id == request.CollectionId &&
-                    x.ApplicationId == _currentApplication.ApplicationId &&
+                    x.ApplicationId == _currentUser.ApplicationId &&
                     x.IsActive,
                 cancellationToken);
 
