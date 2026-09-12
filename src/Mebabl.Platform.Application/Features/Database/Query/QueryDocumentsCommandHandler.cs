@@ -10,18 +10,18 @@ public sealed class QueryDocumentsCommandHandler
     : IRequestHandler<QueryDocumentsCommand, IReadOnlyList<QueryDocumentsResponse>>
 {
     private readonly IApplicationDbContext _dbContext;
-    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentUser _currentUser;
     private readonly IDocumentSecurityService _security;
     private readonly IQueryBuilder _queryBuilder;
 
     public QueryDocumentsCommandHandler(
         IApplicationDbContext dbContext,
-        ICurrentApplication currentApplication,
+        ICurrentUser currentUser,
         IDocumentSecurityService security,
         IQueryBuilder queryBuilder)
     {
         _dbContext = dbContext;
-        _currentApplication = currentApplication;
+        _currentUser = currentUser;
         _security = security;
         _queryBuilder = queryBuilder;
     }
@@ -30,8 +30,8 @@ public sealed class QueryDocumentsCommandHandler
         QueryDocumentsCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated ||
-            _currentApplication.ApplicationId == Guid.Empty)
+        if (!_currentUser.IsAuthenticated ||
+            _currentUser.ApplicationId == Guid.Empty)
         {
             throw new UnauthorizedAccessException();
         }
@@ -46,7 +46,7 @@ public sealed class QueryDocumentsCommandHandler
             .Where(x =>
                 x.CollectionId == request.CollectionId &&
                 x.Collection.ApplicationId ==
-                    _currentApplication.ApplicationId &&
+                    _currentUser.ApplicationId &&
                 !x.IsDeleted);
 
         query = _queryBuilder.Apply(
