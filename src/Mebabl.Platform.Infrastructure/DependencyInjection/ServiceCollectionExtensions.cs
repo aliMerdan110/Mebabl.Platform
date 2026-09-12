@@ -17,7 +17,6 @@ using Microsoft.AspNetCore.Authorization;
 using Mebabl.Platform.Infrastructure.Authentication.Authorization;
 using Mebabl.Platform.Application.Common.Services.ApplicationInitialization;
 using Mebabl.Platform.Application.Common.Security;
-using Mebabl.Platform.Infrastructure.Security;
 using Mebabl.Platform.Application.Features.Database.QueryEngine.Contracts;
 using Mebabl.Platform.Infrastructure.Database.QueryEngine;
 using Mebabl.Platform.Application.Common.Storage;
