@@ -9,16 +9,16 @@ public sealed class DeleteDocumentCommandHandler
     : IRequestHandler<DeleteDocumentCommand>
 {
     private readonly IApplicationDbContext _dbContext;
-    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentUser _currentUser;
     private readonly IDocumentSecurityService _security;
 
     public DeleteDocumentCommandHandler(
         IApplicationDbContext dbContext,
-        ICurrentApplication currentApplication,
+        ICurrentUser currentUser,
         IDocumentSecurityService security)
     {
         _dbContext = dbContext;
-        _currentApplication = currentApplication;
+        _currentUser = currentUser;
         _security = security;
     }
 
@@ -26,8 +26,8 @@ public sealed class DeleteDocumentCommandHandler
         DeleteDocumentCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated ||
-            _currentApplication.ApplicationId == Guid.Empty)
+        if (!_currentUser.IsAuthenticated ||
+            _currentUser.ApplicationId == Guid.Empty)
         {
             throw new UnauthorizedAccessException();
         }
@@ -38,7 +38,7 @@ public sealed class DeleteDocumentCommandHandler
                 x =>
                     x.Id == request.DocumentId &&
                     x.Collection.ApplicationId ==
-                        _currentApplication.ApplicationId &&
+                        _currentUser.ApplicationId &&
                     !x.IsDeleted,
                 cancellationToken);
 
