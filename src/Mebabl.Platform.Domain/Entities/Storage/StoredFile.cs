@@ -1,29 +1,35 @@
-using System.Text.Json;
 using Mebabl.Platform.Domain.Common.Entities;
+using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Domain.Entities.Storage;
 
-public class StoredFile : AuditableEntity
+public sealed class StoredFile : AuditableEntity
 {
-    public Guid BucketId { get; set; }
+    public Guid ApplicationId { get; set; }
 
-    public Bucket Bucket { get; set; } = default!;
+    public Guid? UserId { get; set; }
 
-    public string Key { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = null!;
 
-    public string FileName { get; set; } = string.Empty;
+    public string Path { get; set; } = null!;
 
-    public string ContentType { get; set; } = string.Empty;
+    public string FileName { get; set; } = null!;
 
-    public string Extension { get; set; } = string.Empty;
+    public string ContentType { get; set; } = null!;
+
+    public string Extension { get; set; } = null!;
 
     public long Size { get; set; }
 
-    public string Hash { get; set; } = string.Empty;
+    public string? Hash { get; set; }
 
-    public string StoragePath { get; set; } = string.Empty;
+    public int Version { get; set; }
 
-    public JsonDocument Metadata { get; set; } = JsonDocument.Parse("{}");
+    public string StorageKey { get; set; } = null!;
 
-    public int Version { get; set; } = 1;
+    public bool IsPublic { get; set; }
+
+    public bool IsDeleted { get; set; }
+
+    public PlatformApplication Application { get; set; } = null!;
 }

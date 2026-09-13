@@ -36,6 +36,17 @@ public sealed class QueryDocumentsCommandHandler
             throw new UnauthorizedAccessException();
         }
 
+        var collectionExists = await _dbContext.Collections
+            .AnyAsync(
+                x =>
+                    x.Id == request.CollectionId &&
+                    x.ApplicationId == _currentUser.ApplicationId &&
+                    x.IsActive,
+                cancellationToken);
+
+        if (!collectionExists)
+            throw new KeyNotFoundException("Collection not found.");
+
         await _security.EnsureQueryAsync(
             request.CollectionId,
             cancellationToken);

@@ -1,70 +1,97 @@
-using System.Security.Cryptography;
+using Microsoft.Extensions.Hosting;
 using Mebabl.Platform.Application.Common.Storage;
-using Mebabl.Platform.Domain.Entities.Storage;
 
 namespace Mebabl.Platform.Infrastructure.Storage;
 
 public sealed class LocalStorageProvider : IStorageProvider
 {
-    private readonly string _root =
-        Path.Combine(AppContext.BaseDirectory, "storage");
+    private readonly string _rootPath;
 
-    public async Task<StorageResult> SaveAsync(
-    Bucket bucket,
-    string fileName,
-    string contentType,
-    Stream content,
-    CancellationToken cancellationToken)
-{
-    Directory.CreateDirectory(_root);
-
-    var bucketFolder = Path.Combine(_root, bucket.Code);
-
-    Directory.CreateDirectory(bucketFolder);
-
-    var key = Guid.NewGuid().ToString("N");
-
-    var extension = Path.GetExtension(fileName);
-
-    var storedFileName = key + extension;
-
-    var fullPath = Path.Combine(bucketFolder, storedFileName);
-
-    await using (var stream = File.Create(fullPath))
+    public LocalStorageProvider(IHostEnvironment environment)
     {
-        await content.CopyToAsync(stream, cancellationToken);
+        _rootPath = Path.Combine(environment.ContentRootPath, "storage");
+        Directory.CreateDirectory(_rootPath);
     }
-
-    string hash;
-
-    await using (var stream = File.OpenRead(fullPath))
-    {
-        hash = Convert.ToHexString(
-            await SHA256.HashDataAsync(stream, cancellationToken));
-    }
-
-    return new StorageResult(
-        key,
-        hash,
-        fullPath);
-}
 
     public Task<Stream> OpenReadAsync(
-        StoredFile file,
-        CancellationToken cancellationToken)
+        string storageKey,
+        CancellationToken cancellationToken = default)
     {
-        Stream stream = File.OpenRead(file.StoragePath);
+        var path = GetSafePath(storageKey);
+
+        Stream stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            64 * 1024,
+            useAsync: true);
 
         return Task.FromResult(stream);
     }
 
-    public Task DeleteAsync(
-        StoredFile file,
-        CancellationToken cancellationToken)
+    public async Task WriteAsync(
+        string storageKey,
+        Stream content,
+        CancellationToken cancellationToken = default)
     {
-        if (File.Exists(file.StoragePath))
-            File.Delete(file.StoragePath);
+        var path = GetSafePath(storageKey);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+        await using var file = new FileStream(
+            path,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            64 * 1024,
+            useAsync: true);
+
+        await content.CopyToAsync(file, cancellationToken);
+    }
+
+    public Task DeleteAsync(
+        string storageKey,
+        CancellationToken cancellationToken = default)
+    {
+        var path = GetSafePath(storageKey);
+
+        if (File.Exists(path))
+            File.Delete(path);
 
         return Task.CompletedTask;
+    }
+
+    public Task<bool> ExistsAsync(
+        string storageKey,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(
+            File.Exists(GetSafePath(storageKey)));
+    }
+
+    private string GetSafePath(string storageKey)
+    {
+        var normalized = storageKey
+            .Replace('/', Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .TrimStart(Path.DirectorySeparatorChar);
+
+        var fullPath = Path.GetFullPath(
+            Path.Combine(_rootPath, normalized));
+
+        var root = Path.GetFullPath(_rootPath)
+            .TrimEnd(Path.DirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        if (!fullPath.StartsWith(
+                root,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Invalid storage path.");
+        }
+
+        return fullPath;
     }
 }

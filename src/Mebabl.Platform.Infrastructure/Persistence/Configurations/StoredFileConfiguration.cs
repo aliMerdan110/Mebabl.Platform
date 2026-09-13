@@ -2,9 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Mebabl.Platform.Domain.Entities.Storage;
 
-namespace Mebabl.Platform.Infrastructure.Persistence.Configurations;
+namespace Mebabl.Platform.Infrastructure.Data.Configurations.Storage;
 
-public sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredFile>
+public sealed class StoredFileConfiguration
+    : IEntityTypeConfiguration<StoredFile>
 {
     public void Configure(EntityTypeBuilder<StoredFile> builder)
     {
@@ -12,42 +13,38 @@ public sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredFil
 
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.Key)
-            .HasMaxLength(200)
-            .IsRequired();
-
-        builder.Property(x => x.FileName)
-            .HasMaxLength(300)
-            .IsRequired();
-
-        builder.Property(x => x.ContentType)
-            .HasMaxLength(150);
-
-        builder.Property(x => x.Extension)
-            .HasMaxLength(20);
-
-        builder.Property(x => x.Hash)
-            .HasMaxLength(128);
-
-        builder.Property(x => x.StoragePath)
+        builder.Property(x => x.Path)
             .HasMaxLength(1000)
             .IsRequired();
 
-        builder.Property(x => x.Metadata)
-            .HasColumnType("jsonb");
+        builder.Property(x => x.Name)
+            .HasMaxLength(255)
+            .IsRequired();
 
-        builder.Property(x => x.Version)
-            .HasDefaultValue(1);
+        builder.Property(x => x.ContentType)
+            .HasMaxLength(255)
+            .IsRequired();
+
+        builder.Property(x => x.StorageKey)
+            .HasMaxLength(1200)
+            .IsRequired();
 
         builder.HasIndex(x => new
         {
-            x.BucketId,
-            x.Key
-        }).IsUnique();
+            x.ApplicationId,
+            x.Path
+        });
 
-        builder.HasOne(x => x.Bucket)
-            .WithMany(x => x.Files)
-            .HasForeignKey(x => x.BucketId)
+        builder.HasIndex(x => new
+        {
+            x.ApplicationId,
+            x.StorageKey
+        })
+        .IsUnique();
+
+        builder.HasOne(x => x.Application)
+            .WithMany()
+            .HasForeignKey(x => x.ApplicationId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
