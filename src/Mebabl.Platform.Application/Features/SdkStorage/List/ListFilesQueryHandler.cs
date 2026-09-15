@@ -45,14 +45,17 @@ public sealed class ListFilesQueryHandler
 
         return await query
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new StorageFileDto(
-                x.Id,
-                x.Path,
-                x.Name,
-                x.ContentType,
-                x.Size,
-                x.IsPublic,
-                x.CreatedAt))
+            .Select(file => new StorageFileDto(
+    file.Id,
+    file.Name,
+    file.Path,
+    file.ContentType,
+    file.Size,
+    file.IsPublic,
+    file.CreatedAt,
+    $"/storage/files/{file.Id}"
+)
+            )
             .ToListAsync(cancellationToken);
     }
 }

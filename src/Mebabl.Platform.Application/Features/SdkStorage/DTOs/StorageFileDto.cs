@@ -1,10 +1,12 @@
 namespace Mebabl.Platform.Application.Features.SdkStorage.DTOs;
 
 public sealed record StorageFileDto(
-    Guid Id,
-    string Path,
-    string Name,
-    string ContentType,
-    long Size,
-    bool IsPublic,
-    DateTime CreatedAt);
+Guid Id,
+string Name,
+string Path,
+string ContentType,
+long Size,
+bool IsPublic,
+DateTime CreatedAt,
+string Url
+);

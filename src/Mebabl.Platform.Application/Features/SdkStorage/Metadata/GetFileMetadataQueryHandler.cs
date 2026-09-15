@@ -41,7 +41,8 @@ public sealed class GetFileMetadataQueryHandler
                 x.ContentType,
                 x.Size,
                 x.IsPublic,
-                x.CreatedAt))
+                x.CreatedAt,
+                $"/storage/files/{x.Id}"))
             .FirstOrDefaultAsync(cancellationToken);
 
         return file

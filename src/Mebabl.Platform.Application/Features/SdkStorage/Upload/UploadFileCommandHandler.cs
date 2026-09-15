@@ -58,12 +58,13 @@ public sealed class UploadFileCommandHandler
         await _db.SaveChangesAsync(cancellationToken);
 
         return new StorageFileDto(
-            file.Id,
-            file.Name,
-            file.Path,
-            file.ContentType,
-            file.Size,
-            file.IsPublic,
-            file.CreatedAt);
+    file.Id,
+    file.Name,
+    file.Path,
+    file.ContentType,
+    file.Size,
+    file.IsPublic,
+    file.CreatedAt,
+    $"/storage/files/{file.Id}");
     }
 }
