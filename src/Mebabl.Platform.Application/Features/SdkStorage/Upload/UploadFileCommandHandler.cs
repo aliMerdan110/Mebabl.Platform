@@ -29,8 +29,14 @@ public sealed class UploadFileCommandHandler
     {
         var applicationId = _currentUser.ApplicationId;
 
+        var normalizedPath =
+            request.Path.Trim('/');
+
+        var extension =
+            System.IO.Path.GetExtension(request.FileName);
+
         var storageKey =
-            $"{applicationId}/{request.Path.Trim('/')}/{request.FileName}";
+            $"{applicationId}/{normalizedPath}/{Guid.NewGuid():N}{extension}";
 
         await _storage.WriteAsync(
             storageKey,
@@ -45,7 +51,7 @@ public sealed class UploadFileCommandHandler
             Path = request.Path,
             FileName = request.FileName,
             ContentType = request.ContentType,
-            Extension = System.IO.Path.GetExtension(request.FileName),
+            Extension = extension,
             Size = request.Size,
             StorageKey = storageKey,
             IsPublic = request.IsPublic,
@@ -55,16 +61,17 @@ public sealed class UploadFileCommandHandler
 
         _db.StoredFiles.Add(file);
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _db.SaveChangesAsync(
+            cancellationToken);
 
         return new StorageFileDto(
-    file.Id,
-    file.Name,
-    file.Path,
-    file.ContentType,
-    file.Size,
-    file.IsPublic,
-    file.CreatedAt,
-    $"/storage/files/{file.Id}");
+            file.Id,
+            file.Name,
+            file.Path,
+            file.ContentType,
+            file.Size,
+            file.IsPublic,
+            file.CreatedAt,
+            $"/storage/files/{file.Id}");
     }
 }
