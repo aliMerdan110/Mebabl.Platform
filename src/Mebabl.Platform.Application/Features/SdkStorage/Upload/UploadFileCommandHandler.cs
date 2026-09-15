@@ -27,13 +27,18 @@ public sealed class UploadFileCommandHandler
         UploadFileCommand request,
         CancellationToken cancellationToken)
     {
-        var applicationId = _currentUser.ApplicationId;
+        var applicationId =
+            _currentUser.ApplicationId;
+
+        var ownerId =
+            _currentUser.UserId;
 
         var normalizedPath =
             request.Path.Trim('/');
 
         var extension =
-            System.IO.Path.GetExtension(request.FileName);
+            System.IO.Path.GetExtension(
+                request.FileName);
 
         var storageKey =
             $"{applicationId}/{normalizedPath}/{Guid.NewGuid():N}{extension}";
@@ -46,7 +51,7 @@ public sealed class UploadFileCommandHandler
         var file = new StoredFile
         {
             ApplicationId = applicationId,
-            UserId = _currentUser.UserId,
+            UserId = ownerId,
             Name = request.FileName,
             Path = request.Path,
             FileName = request.FileName,
@@ -72,6 +77,8 @@ public sealed class UploadFileCommandHandler
             file.Size,
             file.IsPublic,
             file.CreatedAt,
-            $"/storage/files/{file.Id}");
+            $"/storage/files/{file.Id}",
+            file.UserId
+        );
     }
 }

@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
-using Mebabl.Platform.Application.Common.Security;
 using Mebabl.Platform.Application.Common.Storage;
 
 namespace Mebabl.Platform.Application.Features.SdkStorage.Delete;
@@ -10,16 +9,16 @@ public sealed class DeleteFileCommandHandler
     : IRequestHandler<DeleteFileCommand>
 {
     private readonly IApplicationDbContext _db;
-    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentUser _currentUser;
     private readonly IStorageProvider _storage;
 
     public DeleteFileCommandHandler(
         IApplicationDbContext db,
-        ICurrentApplication currentApplication,
+        ICurrentUser currentUser,
         IStorageProvider storage)
     {
         _db = db;
-        _currentApplication = currentApplication;
+        _currentUser = currentUser;
         _storage = storage;
     }
 
@@ -27,26 +26,27 @@ public sealed class DeleteFileCommandHandler
         DeleteFileCommand request,
         CancellationToken cancellationToken)
     {
-        var applicationId =
-            _currentApplication.ApplicationId;
-
         var file = await _db.StoredFiles
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.FileId &&
-                    x.ApplicationId == applicationId,
+                    x.ApplicationId == _currentUser.ApplicationId &&
+                    x.UserId == _currentUser.UserId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (file is null)
             throw new KeyNotFoundException(
-                "File was not found.");
+                "Storage file not found.");
 
         await _storage.DeleteAsync(
             file.StorageKey,
             cancellationToken);
 
-        _db.StoredFiles.Remove(file);
+        file.IsDeleted = true;
+        file.DeletedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _db.SaveChangesAsync(
+            cancellationToken);
     }
 }
