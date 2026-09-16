@@ -30,10 +30,6 @@ public sealed class GetApplicationUsersQueryHandler
                 "Developer authentication is required.");
         }
 
-        // ------------------------------------------------------------
-        // Verify that the application belongs to the current developer
-        // ------------------------------------------------------------
-
         var applicationExists =
             await _dbContext.Applications
                 .AsNoTracking()
@@ -51,15 +47,9 @@ public sealed class GetApplicationUsersQueryHandler
                 "Application was not found.");
         }
 
-        // ------------------------------------------------------------
-        // Get users belonging ONLY to this application
-        // ------------------------------------------------------------
-
         var users =
             await _dbContext.ApplicationUsers
                 .AsNoTracking()
-                .Include(applicationUser =>
-                    applicationUser.Account)
                 .Where(
                     applicationUser =>
                         applicationUser.ApplicationId ==
@@ -72,13 +62,12 @@ public sealed class GetApplicationUsersQueryHandler
                     applicationUser =>
                         new ApplicationUserDto(
                             applicationUser.Id,
-                            applicationUser.Account.Email,
-                            applicationUser.Account.Username,
+                            applicationUser.Email,
+                            applicationUser.Username,
                             "password",
                             applicationUser.CreatedAt,
                             applicationUser.LastLoginAt,
-                            applicationUser.IsActive &&
-                            applicationUser.Account.IsActive))
+                            applicationUser.IsActive))
                 .ToListAsync(cancellationToken);
 
         return users;

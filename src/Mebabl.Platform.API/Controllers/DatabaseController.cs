@@ -1,4 +1,3 @@
-
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,77 +22,73 @@ public sealed class DatabaseController : BaseApiController
         return Ok(result);
     }
 
-
-   [HttpPost("collections/{collectionId:guid}/documents")]
-public async Task<IActionResult> CreateDocument(
-    Guid collectionId,
-    JsonElement body,
-    CancellationToken cancellationToken)
-{
-    var result = await Sender.Send(
-        new CreateDocumentCommand(
-            collectionId,
-            Guid.NewGuid().ToString("N"),
-            JsonDocument.Parse(body.GetRawText())),
-        cancellationToken);
-
-    return Ok(new
+    [HttpPost("collections/{collectionId:guid}/documents")]
+    public async Task<IActionResult> CreateDocument(
+        Guid collectionId,
+        JsonElement body,
+        CancellationToken cancellationToken)
     {
-        id = result
-    });
-}
+        var result = await Sender.Send(
+            new CreateDocumentCommand(
+                collectionId,
+                Guid.NewGuid().ToString("N"),
+                JsonDocument.Parse(body.GetRawText())),
+            cancellationToken);
 
+        return Ok(new
+        {
+            id = result
+        });
+    }
 
-[HttpGet("documents/{id:guid}")]
-public async Task<IActionResult> GetDocument(
-    Guid id,
-    CancellationToken cancellationToken)
-{
-    var result = await Sender.Send(
-        new GetDocumentQuery(id),
-        cancellationToken);
+    [HttpGet("documents/{id:guid}")]
+    public async Task<IActionResult> GetDocument(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            new GetDocumentQuery(id),
+            cancellationToken);
 
-    return Ok(result);
-}
+        return Ok(result);
+    }
 
-[HttpPut("documents/{id:guid}")]
-public async Task<IActionResult> UpdateDocument(
-    Guid id,
-    JsonElement body,
-    CancellationToken cancellationToken)
-{
-    var document = body.Deserialize<UpdateDocumentRequest>();
+    [HttpPut("collections/{collectionId:guid}/documents/{documentId:guid}")]
+    public async Task<IActionResult> Update(
+        Guid collectionId,
+        Guid documentId,
+        UpdateDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        await Sender.Send(
+            new UpdateDocumentCommand(
+                collectionId,
+                documentId,
+                request.Key,
+                JsonDocument.Parse(request.Data.GetRawText()),
+                request.ExpectedVersion),
+            cancellationToken);
 
-    if (document is null)
-        return BadRequest();
+        return NoContent();
+    }
 
-    await Sender.Send(
-        new UpdateDocumentCommand(
-            id,
-            document.Key,
-            JsonDocument.Parse(document.Data.GetRawText())),
-        cancellationToken);
+    public sealed record UpdateDocumentRequest(
+        string Key,
+        JsonElement Data,
+        int ExpectedVersion);
 
-    return NoContent();
-}
+    [HttpDelete("collections/{collectionId:guid}/documents/{documentId:guid}")]
+    public async Task<IActionResult> Delete(
+        Guid collectionId,
+        Guid documentId,
+        CancellationToken cancellationToken)
+    {
+        await Sender.Send(
+            new DeleteDocumentCommand(
+                collectionId,
+                documentId),
+            cancellationToken);
 
-private sealed record UpdateDocumentRequest(
-    string Key,
-    JsonElement Data);
-
-    
-
-[HttpDelete("documents/{id:guid}")]
-public async Task<IActionResult> DeleteDocument(
-    Guid id,
-    CancellationToken cancellationToken)
-{
-    await Sender.Send(
-        new DeleteDocumentCommand(id),
-        cancellationToken);
-
-    return NoContent();
-}
-
-
+        return NoContent();
+    }
 }

@@ -14,37 +14,46 @@ public sealed class DocumentConfiguration
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Key)
-            .HasMaxLength(200)
-            .IsRequired();
+            .IsRequired()
+            .HasMaxLength(200);
 
         builder.Property(x => x.Data)
             .HasColumnType("jsonb")
             .IsRequired();
 
         builder.Property(x => x.Version)
-            .HasDefaultValue(1);
-
-        builder.Property(x => x.ETag)
-            .HasMaxLength(100);
+            .IsRequired();
 
         builder.Property(x => x.IsDeleted)
-            .HasDefaultValue(false);
+            .IsRequired();
+
+        builder.Property(x => x.CreatedAt)
+            .IsRequired();
 
         builder.HasIndex(x => new
         {
+            x.ApplicationId,
             x.CollectionId,
             x.Key
-        }).IsUnique();
+        });
 
         builder.HasIndex(x => new
         {
+            x.ApplicationId,
             x.CollectionId,
-            x.IsDeleted
+            x.UserId
+        });
+
+        builder.HasIndex(x => new
+        {
+            x.ApplicationId,
+            x.CollectionId,
+            x.CreatedAt
         });
 
         builder.HasOne(x => x.Collection)
-            .WithMany(x => x.Documents)
+            .WithMany()
             .HasForeignKey(x => x.CollectionId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

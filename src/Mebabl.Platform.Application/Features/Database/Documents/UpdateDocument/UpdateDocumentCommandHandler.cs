@@ -1,14 +1,12 @@
-using System.Text.Json;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Common.Security;
-using Mebabl.Platform.Application.Features.Database.Documents.DTOs;
 
 namespace Mebabl.Platform.Application.Features.Database.Documents.UpdateDocument;
 
 public sealed class UpdateDocumentCommandHandler
-    : IRequestHandler<UpdateDocumentCommand, DocumentResponse>
+    : IRequestHandler<UpdateDocumentCommand>
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentUser _currentUser;
@@ -24,50 +22,48 @@ public sealed class UpdateDocumentCommandHandler
         _security = security;
     }
 
-    public async Task<DocumentResponse> Handle(
+    public async Task Handle(
         UpdateDocumentCommand request,
         CancellationToken cancellationToken)
     {
         if (!_currentUser.IsAuthenticated ||
-            _currentUser.ApplicationId == Guid.Empty)
+            _currentUser.ApplicationId == Guid.Empty ||
+            _currentUser.UserId == Guid.Empty)
         {
             throw new UnauthorizedAccessException();
         }
 
+        await _security.EnsureWriteAsync(
+            request.CollectionId,
+            cancellationToken);
+
         var document = await _dbContext.Documents
-            .Include(x => x.Collection)
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.DocumentId &&
-                    x.Collection.ApplicationId ==
-                        _currentUser.ApplicationId &&
+                    x.CollectionId == request.CollectionId &&
+                    x.ApplicationId == _currentUser.ApplicationId &&
                     !x.IsDeleted,
                 cancellationToken);
 
         if (document is null)
             throw new KeyNotFoundException("Document not found.");
 
-        await _security.EnsureWriteAsync(
-            document.CollectionId,
-            cancellationToken);
+        if (document.UserId != _currentUser.UserId)
+            throw new UnauthorizedAccessException();
+
+        if (document.Version != request.ExpectedVersion)
+            throw new InvalidOperationException(
+                $"Document version conflict. Expected {request.ExpectedVersion}, current version is {document.Version}.");
 
         document.Key = request.Key.Trim();
 
-        document.Data = JsonDocument.Parse(
+        document.Data = System.Text.Json.JsonDocument.Parse(
             request.Data.RootElement.GetRawText());
 
         document.Version++;
-
         document.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return new DocumentResponse(
-            document.Id,
-            document.Key,
-            document.Data,
-            document.Version,
-            document.CreatedAt,
-            document.UpdatedAt);
     }
 }

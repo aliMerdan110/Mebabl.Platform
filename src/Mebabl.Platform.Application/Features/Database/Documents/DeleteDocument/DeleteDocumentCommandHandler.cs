@@ -37,8 +37,8 @@ public sealed class DeleteDocumentCommandHandler
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.DocumentId &&
-                    x.Collection.ApplicationId ==
-                        _currentUser.ApplicationId &&
+                    x.CollectionId == request.CollectionId &&
+                    x.Collection.ApplicationId == _currentUser.ApplicationId &&
                     !x.IsDeleted,
                 cancellationToken);
 
@@ -46,7 +46,7 @@ public sealed class DeleteDocumentCommandHandler
             throw new KeyNotFoundException("Document not found.");
 
         await _security.EnsureDeleteAsync(
-            document.CollectionId,
+            request.CollectionId,
             cancellationToken);
 
         document.IsDeleted = true;

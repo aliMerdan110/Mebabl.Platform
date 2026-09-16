@@ -1,25 +1,28 @@
 using System.Text.Json;
-using Mebabl.Platform.Domain.Common.Entities;
 
 namespace Mebabl.Platform.Domain.Entities.Database;
 
-public class Document : AuditableEntity
+public sealed class Document
 {
+    public Guid Id { get; set; }
+
     public Guid CollectionId { get; set; }
 
-    public Collection Collection { get; set; } = default!;
+    public Guid ApplicationId { get; set; }
 
-    public string Key { get; set; } = Guid.NewGuid().ToString("N");
+    public Guid? UserId { get; set; }
+
+    public string Key { get; set; } = null!;
 
     public JsonDocument Data { get; set; } = JsonDocument.Parse("{}");
 
     public int Version { get; set; } = 1;
 
-    public string? ETag { get; set; }
+    public bool IsDeleted { get; set; }
 
-    public new bool IsDeleted { get; set; }
+    public DateTime CreatedAt { get; set; }
 
-    public new DateTime? DeletedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 
-    public new Guid? DeletedBy { get; set; }
+    public Collection Collection { get; set; } = null!;
 }

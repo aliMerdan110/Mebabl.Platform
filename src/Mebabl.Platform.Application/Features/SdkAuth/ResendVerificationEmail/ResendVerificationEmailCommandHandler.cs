@@ -33,36 +33,46 @@ public sealed class ResendVerificationEmailCommandHandler
         ResendVerificationEmailCommand request,
         CancellationToken cancellationToken)
     {
+        if (!_currentUser.IsAuthenticated)
+            throw new UnauthorizedAccessException();
+
         var user = await _dbContext.ApplicationUsers
-            .Include(x => x.Account)
             .FirstOrDefaultAsync(
-                x => x.Id == _currentUser.UserId,
+                x =>
+                    x.Id == _currentUser.UserId &&
+                    x.ApplicationId == _currentUser.ApplicationId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (user is null)
             throw new UnauthorizedAccessException("User not found.");
 
-        if (!user.IsActive || !user.Account.IsActive)
+        if (!user.IsActive)
+        {
             throw new UnauthorizedAccessException(
                 "The user account is inactive.");
+        }
 
-        if (user.Account.EmailConfirmed)
+        if (user.EmailConfirmed)
         {
             return new ResendVerificationEmailResponse(
                 "Email is already verified.");
         }
 
+        var now = DateTime.UtcNow;
+
         var activeTokens =
             await _dbContext.ApplicationUserEmailVerificationTokens
-                .Where(x =>
-                    x.UserId == user.Id &&
-                    x.UsedAt == null &&
-                    x.ExpiresAt > DateTime.UtcNow)
+                .Where(
+                    x =>
+                        x.UserId == user.Id &&
+                        x.UsedAt == null &&
+                        x.ExpiresAt > now)
                 .ToListAsync(cancellationToken);
 
         foreach (var token in activeTokens)
         {
-            token.UsedAt = DateTime.UtcNow;
+            token.UsedAt = now;
         }
 
         var rawToken = _tokenService.GenerateToken();
@@ -73,7 +83,7 @@ public sealed class ResendVerificationEmailCommandHandler
             {
                 UserId = user.Id,
                 TokenHash = tokenHash,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(30)
+                ExpiresAt = now.AddMinutes(30)
             };
 
         _dbContext.ApplicationUserEmailVerificationTokens
@@ -86,7 +96,7 @@ public sealed class ResendVerificationEmailCommandHandler
             Uri.EscapeDataString(rawToken);
 
         await _emailService.SendAsync(
-            user.Account.Email,
+            user.Email,
             "Verify your email",
             $"""
             Hello,

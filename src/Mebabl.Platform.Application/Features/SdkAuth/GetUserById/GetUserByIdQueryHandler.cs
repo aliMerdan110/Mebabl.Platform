@@ -27,11 +27,11 @@ public sealed class GetUserByIdQueryHandler
 
         var user = await _dbContext.ApplicationUsers
             .AsNoTracking()
-            .Include(x => x.Account)
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.Id &&
-                    x.ApplicationId == _currentApplication.ApplicationId,
+                    x.ApplicationId == _currentApplication.ApplicationId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (user is null)
@@ -39,8 +39,8 @@ public sealed class GetUserByIdQueryHandler
 
         return new GetUserByIdResponse(
             user.Id,
-            user.Account.Email,
-            user.Account.Username,
+            user.Email,
+            user.Username,
             user.IsActive,
             user.CreatedAt,
             user.LastLoginAt);

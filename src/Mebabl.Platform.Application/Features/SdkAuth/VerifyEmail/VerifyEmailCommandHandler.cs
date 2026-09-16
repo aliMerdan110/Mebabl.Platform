@@ -23,19 +23,18 @@ public sealed class VerifyEmailCommandHandler
         VerifyEmailCommand request,
         CancellationToken cancellationToken)
     {
-
         var tokenHash = _tokenService.HashToken(request.Token);
+        var now = DateTime.UtcNow;
 
-var verificationToken =
-    await _dbContext.ApplicationUserEmailVerificationTokens
-        .Include(x => x.User)
-        .ThenInclude(x => x.Account)
-        .FirstOrDefaultAsync(
-            x =>
-                x.TokenHash == tokenHash &&
-                x.UsedAt == null &&
-                x.ExpiresAt > DateTime.UtcNow,
-            cancellationToken);
+        var verificationToken =
+            await _dbContext.ApplicationUserEmailVerificationTokens
+                .Include(x => x.User)
+                .FirstOrDefaultAsync(
+                    x =>
+                        x.TokenHash == tokenHash &&
+                        x.UsedAt == null &&
+                        x.ExpiresAt > now,
+                    cancellationToken);
 
         if (verificationToken is null)
         {
@@ -45,15 +44,16 @@ var verificationToken =
 
         var user = verificationToken.User;
 
-        if (!user.IsActive || !user.Account.IsActive)
+        if (user.IsDeleted || !user.IsActive)
         {
             throw new UnauthorizedAccessException(
                 "The user account is inactive.");
         }
 
-        user.Account.EmailConfirmed = true;
+        user.EmailConfirmed = true;
+        user.UpdatedAt = now;
 
-        verificationToken.UsedAt = DateTime.UtcNow;
+        verificationToken.UsedAt = now;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 

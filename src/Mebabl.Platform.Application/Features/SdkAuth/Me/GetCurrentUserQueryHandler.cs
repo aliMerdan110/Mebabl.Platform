@@ -23,9 +23,11 @@ public sealed class GetCurrentUserQueryHandler
         CancellationToken cancellationToken)
     {
         var user = await _db.ApplicationUsers
-            .Include(x => x.Account)
             .FirstAsync(
-                x => x.Id == _currentUser.UserId,
+                x =>
+                    x.Id == _currentUser.UserId &&
+                    x.ApplicationId == _currentUser.ApplicationId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         var roles = await _db.ApplicationUserRoles
@@ -45,8 +47,8 @@ public sealed class GetCurrentUserQueryHandler
             user.AccountId,
             user.Id,
             user.ApplicationId,
-            user.Account.Email,
-            user.Account.Username,
+            user.Email,
+            user.Username,
             roles,
             permissions);
     }

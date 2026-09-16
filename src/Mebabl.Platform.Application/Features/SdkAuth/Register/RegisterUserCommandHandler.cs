@@ -46,42 +46,67 @@ public sealed class RegisterUserCommandHandler
     {
         var applicationId = _currentApplication.ApplicationId;
 
-        var normalizedEmail = request.Email.Trim().ToUpperInvariant();
-        var normalizedUsername = request.Username.Trim().ToUpperInvariant();
+        if (applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "Application authentication is required.");
+        }
 
-        var account = await _dbContext.Accounts
-            .Include(x => x.ApplicationUsers)
-            .FirstOrDefaultAsync(
-                x => x.NormalizedEmail == normalizedEmail,
+        var email = request.Email.Trim();
+        var username = request.Username.Trim();
+
+        var normalizedEmail = email.ToUpperInvariant();
+        var normalizedUsername = username.ToUpperInvariant();
+
+        var emailExists = await _dbContext.ApplicationUsers
+            .AsNoTracking()
+            .AnyAsync(
+                x =>
+                    x.ApplicationId == applicationId &&
+                    x.NormalizedEmail == normalizedEmail &&
+                    !x.IsDeleted,
                 cancellationToken);
 
-        if (account is null)
+        if (emailExists)
         {
-            account = new Account
-            {
-                Email = request.Email.Trim(),
-                NormalizedEmail = normalizedEmail,
-                Username = request.Username.Trim(),
-                NormalizedUsername = normalizedUsername,
-                PasswordHash = _passwordHasher.Hash(request.Password)
-            };
-
-            _dbContext.Accounts.Add(account);
+            throw new Exception(
+                "User with this email already exists in this application.");
         }
 
-        var existsInApplication = account.ApplicationUsers.Any(x =>
-            x.ApplicationId == applicationId);
+        var usernameExists = await _dbContext.ApplicationUsers
+            .AsNoTracking()
+            .AnyAsync(
+                x =>
+                    x.ApplicationId == applicationId &&
+                    x.NormalizedUsername == normalizedUsername &&
+                    !x.IsDeleted,
+                cancellationToken);
 
-        if (existsInApplication)
+        if (usernameExists)
         {
-            throw new Exception("User already exists in this application.");
+            throw new Exception(
+                "User with this username already exists in this application.");
         }
+
+        var account = new Account();
+
+        _dbContext.Accounts.Add(account);
 
         var applicationUser = new ApplicationUser
         {
             Account = account,
-            ApplicationId = applicationId
+            ApplicationId = applicationId,
+            Email = email,
+            NormalizedEmail = normalizedEmail,
+            Username = username,
+            NormalizedUsername = normalizedUsername,
+            PasswordHash = _passwordHasher.Hash(request.Password),
+            SecurityStamp = Guid.NewGuid().ToString(),
+            EmailConfirmed = false,
+            IsActive = true
         };
+
+        _dbContext.ApplicationUsers.Add(applicationUser);
 
         var refreshToken = new RefreshToken
         {
@@ -91,8 +116,6 @@ public sealed class RegisterUserCommandHandler
         };
 
         applicationUser.RefreshTokens.Add(refreshToken);
-
-        _dbContext.ApplicationUsers.Add(applicationUser);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -113,19 +136,16 @@ public sealed class RegisterUserCommandHandler
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // -------------------------------------------------
-        // Email Verification
-        // -------------------------------------------------
-
         var rawToken = _tokenService.GenerateToken();
         var tokenHash = _tokenService.HashToken(rawToken);
 
-        var verificationToken = new ApplicationUserEmailVerificationToken
-        {
-            UserId = applicationUser.Id,
-            TokenHash = tokenHash,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(30)
-        };
+        var verificationToken =
+            new ApplicationUserEmailVerificationToken
+            {
+                UserId = applicationUser.Id,
+                TokenHash = tokenHash,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(30)
+            };
 
         _dbContext.ApplicationUserEmailVerificationTokens
             .Add(verificationToken);
@@ -134,11 +154,11 @@ public sealed class RegisterUserCommandHandler
 
         var consoleUrl = _consoleOptions.BaseUrl.TrimEnd('/');
 
-      var verificationUrl =
-    $"{consoleUrl}/verify-email?token={Uri.EscapeDataString(rawToken)}";
-    
+        var verificationUrl =
+            $"{consoleUrl}/verify-email?token={Uri.EscapeDataString(rawToken)}";
+
         await _emailService.SendAsync(
-            account.Email,
+            applicationUser.Email,
             "Verify your email",
             $"""
             Hello,
@@ -156,10 +176,6 @@ public sealed class RegisterUserCommandHandler
             Mebabl Platform
             """,
             cancellationToken);
-
-        // -------------------------------------------------
-        // Roles & Permissions
-        // -------------------------------------------------
 
         var roles = await _dbContext.ApplicationUserRoles
             .Where(x => x.ApplicationUserId == applicationUser.Id)

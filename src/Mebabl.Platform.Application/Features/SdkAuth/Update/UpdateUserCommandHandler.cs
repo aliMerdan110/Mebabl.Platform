@@ -25,22 +25,39 @@ public sealed class UpdateUserCommandHandler
         if (!_currentApplication.IsAuthenticated)
             throw new UnauthorizedAccessException();
 
+        var applicationId = _currentApplication.ApplicationId;
+
         var user = await _dbContext.ApplicationUsers
-            .Include(x => x.Account)
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.Id &&
-                    x.ApplicationId == _currentApplication.ApplicationId,
+                    x.ApplicationId == applicationId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (user is null)
             throw new Exception("User not found.");
 
-        user.Account.Username = request.Username;
-        user.Account.NormalizedUsername =
-            request.Username.Trim().ToUpperInvariant();
+        var username = request.Username.Trim();
+        var normalizedUsername = username.ToUpperInvariant();
 
+        var usernameExists = await _dbContext.ApplicationUsers
+            .AnyAsync(
+                x =>
+                    x.Id != user.Id &&
+                    x.ApplicationId == applicationId &&
+                    x.NormalizedUsername == normalizedUsername &&
+                    !x.IsDeleted,
+                cancellationToken);
+
+        if (usernameExists)
+            throw new Exception(
+                "Username is already in use in this application.");
+
+        user.Username = username;
+        user.NormalizedUsername = normalizedUsername;
         user.IsActive = request.IsActive;
+        user.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using Mebabl.Platform.Application.Features.Database.Documents.CreateDocument;
 using Mebabl.Platform.Application.Features.Database.Documents.GetDocument;
 using Mebabl.Platform.Application.Features.Database.Documents.ListDocuments;
@@ -69,14 +70,16 @@ public sealed class DocumentsController : ControllerBase
         UpdateDocumentRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(
+        await _mediator.Send(
             new UpdateDocumentCommand(
+                collectionId,
                 documentId,
                 request.Key,
-                request.Data),
+                request.Data,
+                request.ExpectedVersion),
             cancellationToken);
 
-        return Ok(result);
+        return NoContent();
     }
 
     [HttpDelete("{documentId:guid}")]
@@ -86,7 +89,9 @@ public sealed class DocumentsController : ControllerBase
         CancellationToken cancellationToken)
     {
         await _mediator.Send(
-            new DeleteDocumentCommand(documentId),
+            new DeleteDocumentCommand(
+                collectionId,
+                documentId),
             cancellationToken);
 
         return NoContent();
@@ -94,9 +99,10 @@ public sealed class DocumentsController : ControllerBase
 
     public sealed record CreateDocumentRequest(
         string Key,
-        System.Text.Json.JsonDocument Data);
+        JsonDocument Data);
 
     public sealed record UpdateDocumentRequest(
         string Key,
-        System.Text.Json.JsonDocument Data);
+        JsonDocument Data,
+        int ExpectedVersion);
 }

@@ -1,4 +1,3 @@
-
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
@@ -29,16 +28,16 @@ public sealed class SdkResetPasswordCommandHandler
         CancellationToken cancellationToken)
     {
         var tokenHash = _tokenService.HashToken(request.Token);
+        var now = DateTime.UtcNow;
 
         var resetToken =
             await _dbContext.ApplicationUserPasswordResetTokens
                 .Include(x => x.User)
-                .ThenInclude(x => x.Account)
                 .FirstOrDefaultAsync(
                     x =>
                         x.TokenHash == tokenHash &&
                         x.UsedAt == null &&
-                        x.ExpiresAt > DateTime.UtcNow,
+                        x.ExpiresAt > now,
                     cancellationToken);
 
         if (resetToken is null)
@@ -48,32 +47,28 @@ public sealed class SdkResetPasswordCommandHandler
 
         var user = resetToken.User;
 
-        if (!user.IsActive)
+        if (!user.IsActive || user.IsDeleted)
         {
             throw new UserAccountInactiveException();
         }
 
-        if (!user.Account.IsActive)
-        {
-            throw new UserAccountInactiveException();
-        }
-
-        user.Account.PasswordHash =
+        user.PasswordHash =
             _passwordHasher.Hash(request.NewPassword);
 
-        user.Account.SecurityStamp =
+        user.SecurityStamp =
             Guid.NewGuid().ToString();
 
-        var now = DateTime.UtcNow;
+        user.UpdatedAt = now;
 
         resetToken.UsedAt = now;
 
         var otherResetTokens =
             await _dbContext.ApplicationUserPasswordResetTokens
-                .Where(x =>
-                    x.UserId == user.Id &&
-                    x.Id != resetToken.Id &&
-                    x.UsedAt == null)
+                .Where(
+                    x =>
+                        x.UserId == user.Id &&
+                        x.Id != resetToken.Id &&
+                        x.UsedAt == null)
                 .ToListAsync(cancellationToken);
 
         foreach (var token in otherResetTokens)
@@ -83,10 +78,11 @@ public sealed class SdkResetPasswordCommandHandler
 
         var refreshTokens =
             await _dbContext.RefreshTokens
-                .Where(x =>
-                    x.ApplicationUserId == user.Id &&
-                    x.RevokedAt == null &&
-                    x.ExpiresAt > now)
+                .Where(
+                    x =>
+                        x.ApplicationUserId == user.Id &&
+                        x.RevokedAt == null &&
+                        x.ExpiresAt > now)
                 .ToListAsync(cancellationToken);
 
         foreach (var refreshToken in refreshTokens)

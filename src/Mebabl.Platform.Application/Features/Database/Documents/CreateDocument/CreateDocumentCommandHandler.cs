@@ -1,44 +1,50 @@
-
-using System.Text.Json;
 using MediatR;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Common.Security;
-using Mebabl.Platform.Application.Features.Database.Documents.DTOs;
 using Mebabl.Platform.Domain.Entities.Database;
 
 namespace Mebabl.Platform.Application.Features.Database.Documents.CreateDocument;
 
 public sealed class CreateDocumentCommandHandler
-    : IRequestHandler<CreateDocumentCommand, DocumentResponse>
+    : IRequestHandler<CreateDocumentCommand, Guid>
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentUser _currentUser;
     private readonly IDocumentSecurityService _security;
 
     public CreateDocumentCommandHandler(
-        IApplicationDbContext context,
+        IApplicationDbContext dbContext,
         ICurrentUser currentUser,
         IDocumentSecurityService security)
     {
-        _context = context;
+        _dbContext = dbContext;
         _currentUser = currentUser;
         _security = security;
     }
 
-    public async Task<DocumentResponse> Handle(
+    public async Task<Guid> Handle(
         CreateDocumentCommand request,
         CancellationToken cancellationToken)
     {
-        var collection = await _context.Collections
+        if (!_currentUser.IsAuthenticated ||
+            _currentUser.ApplicationId == Guid.Empty ||
+            _currentUser.UserId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException();
+        }
+
+        var collection = await _dbContext.Collections
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.CollectionId &&
-                    x.ApplicationId == _currentUser.ApplicationId,
+                    x.ApplicationId == _currentUser.ApplicationId &&
+                    x.IsActive,
                 cancellationToken);
 
         if (collection is null)
-            throw new Exception("Collection not found.");
+            throw new KeyNotFoundException("Collection not found.");
 
         await _security.EnsureWriteAsync(
             request.CollectionId,
@@ -46,23 +52,22 @@ public sealed class CreateDocumentCommandHandler
 
         var document = new Document
         {
-            CollectionId = collection.Id,
-            Key = request.Key,
+            Id = Guid.NewGuid(),
+            ApplicationId = _currentUser.ApplicationId,
+            CollectionId = request.CollectionId,
+            UserId = request.UserId ?? _currentUser.UserId,
+            Key = request.Key.Trim(),
             Data = JsonDocument.Parse(
-                request.Data.RootElement.GetRawText())
+                request.Data.RootElement.GetRawText()),
+            Version = 1,
+            IsDeleted = false,
+            CreatedAt = DateTime.UtcNow
         };
 
-        _context.Documents.Add(document);
+        _dbContext.Documents.Add(document);
 
-        await _context.SaveChangesAsync(
-            cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new DocumentResponse(
-            document.Id,
-            document.Key,
-            document.Data,
-            document.Version,
-            document.CreatedAt,
-            document.UpdatedAt);
+        return document.Id;
     }
 }

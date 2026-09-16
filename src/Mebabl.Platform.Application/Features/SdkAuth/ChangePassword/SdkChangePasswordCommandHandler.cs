@@ -29,35 +29,44 @@ public sealed class SdkChangePasswordCommandHandler
         if (!_currentUser.IsAuthenticated)
             throw new UnauthorizedAccessException();
 
-        // بما أن AccountId من نوع Guid عادي، تأكد مما إذا كان فارغاً (Guid.Empty)
-        if (_currentUser.AccountId == Guid.Empty)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentUser.ApplicationId;
 
-        var account = await _dbContext.Accounts
+        if (applicationId == Guid.Empty ||
+            _currentUser.UserId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException();
+        }
+
+        var user = await _dbContext.ApplicationUsers
             .FirstOrDefaultAsync(
-                x => x.Id == _currentUser.AccountId && // <--- استخدمه مباشرة بدون .Value
-                     x.IsActive &&
-                     !x.IsDeleted,
+                x =>
+                    x.Id == _currentUser.UserId &&
+                    x.ApplicationId == applicationId &&
+                    x.IsActive &&
+                    !x.IsDeleted,
                 cancellationToken);
 
-        if (account is null)
+        if (user is null)
             throw new UnauthorizedAccessException();
+
+        if (string.IsNullOrWhiteSpace(user.PasswordHash))
+            throw new UnauthorizedAccessException(
+                "Current password is incorrect.");
 
         var currentPasswordValid =
             _passwordHasher.Verify(
                 request.CurrentPassword,
-                account.PasswordHash);
+                user.PasswordHash);
 
         if (!currentPasswordValid)
             throw new UnauthorizedAccessException(
                 "Current password is incorrect.");
 
-        account.PasswordHash =
+        user.PasswordHash =
             _passwordHasher.Hash(request.NewPassword);
 
-        account.SecurityStamp = Guid.NewGuid().ToString();
-
-        account.UpdatedAt = DateTime.UtcNow;
+        user.SecurityStamp = Guid.NewGuid().ToString();
+        user.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

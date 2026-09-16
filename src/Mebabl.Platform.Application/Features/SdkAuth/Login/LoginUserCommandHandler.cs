@@ -31,39 +31,40 @@ public sealed class LoginUserCommandHandler
         LoginUserCommand request,
         CancellationToken cancellationToken)
     {
-        // ------------------------------------------------------------
-        // Validate Application
-        // ------------------------------------------------------------
-
-       
-
         var applicationId = _currentApplication.ApplicationId;
 
-        // ------------------------------------------------------------
-        // Find Account
-        // ------------------------------------------------------------
+        if (applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "Application authentication is required.");
+        }
 
         var normalizedEmail = request.Email
             .Trim()
             .ToUpperInvariant();
 
-        var account = await _dbContext.Accounts
-            .Include(x => x.ApplicationUsers)
+        var applicationUser = await _dbContext.ApplicationUsers
             .FirstOrDefaultAsync(
-                x => x.NormalizedEmail == normalizedEmail,
+                x =>
+                    x.ApplicationId == applicationId &&
+                    x.NormalizedEmail == normalizedEmail &&
+                    !x.IsDeleted,
                 cancellationToken);
 
-        if (account is null)
+        if (applicationUser is null)
         {
             throw new UnauthorizedAccessException(
                 "Invalid email or password.");
         }
 
-        // ------------------------------------------------------------
-        // Verify Password
-        // ------------------------------------------------------------
+        if (!applicationUser.IsActive)
+        {
+            throw new UnauthorizedAccessException(
+                "User account is inactive.");
+        }
 
-        if (string.IsNullOrWhiteSpace(account.PasswordHash))
+        if (string.IsNullOrWhiteSpace(
+                applicationUser.PasswordHash))
         {
             throw new UnauthorizedAccessException(
                 "Invalid email or password.");
@@ -71,7 +72,7 @@ public sealed class LoginUserCommandHandler
 
         var passwordValid = _passwordHasher.Verify(
             request.Password,
-            account.PasswordHash);
+            applicationUser.PasswordHash);
 
         if (!passwordValid)
         {
@@ -79,46 +80,26 @@ public sealed class LoginUserCommandHandler
                 "Invalid email or password.");
         }
 
-        // ------------------------------------------------------------
-        // Application User
-        // ------------------------------------------------------------
-
-        var applicationUser = account.ApplicationUsers
-            .FirstOrDefault(x =>
-                x.ApplicationId == applicationId);
-
-        if (applicationUser is null)
-        {
-            throw new UnauthorizedAccessException(
-                "User is not registered in this application.");
-        }
-
-        // ------------------------------------------------------------
-        // Roles
-        // ------------------------------------------------------------
+        applicationUser.LastLoginAt = DateTime.UtcNow;
 
         var roles = await _dbContext.ApplicationUserRoles
-            .Where(x =>
-                x.ApplicationUserId == applicationUser.Id)
+            .Where(
+                x =>
+                    x.ApplicationUserId ==
+                    applicationUser.Id)
             .Select(x => x.Role.Name)
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        // ------------------------------------------------------------
-        // Permissions
-        // ------------------------------------------------------------
-
         var permissions = await _dbContext.ApplicationUserRoles
-            .Where(x =>
-                x.ApplicationUserId == applicationUser.Id)
+            .Where(
+                x =>
+                    x.ApplicationUserId ==
+                    applicationUser.Id)
             .SelectMany(x => x.Role.RolePermissions)
             .Select(x => x.Permission.Code)
             .Distinct()
             .ToListAsync(cancellationToken);
-
-        // ------------------------------------------------------------
-        // Refresh Token
-        // ------------------------------------------------------------
 
         var refreshToken = new RefreshToken
         {
@@ -131,19 +112,15 @@ public sealed class LoginUserCommandHandler
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // ------------------------------------------------------------
-        // Access Token
-        // ------------------------------------------------------------
-
         var accessToken = _jwtTokenGenerator.GenerateAccessToken(
-            account.Id,
+            applicationUser.AccountId,
             applicationUser.Id,
             applicationUser.ApplicationId,
             roles,
             permissions);
 
         return new LoginUserResponse(
-            account.Id,
+            applicationUser.AccountId,
             applicationUser.Id,
             accessToken,
             refreshToken.Token);

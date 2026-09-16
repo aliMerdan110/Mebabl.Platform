@@ -27,14 +27,19 @@ public sealed class GetUsersQueryHandler
 
         return await _dbContext.ApplicationUsers
             .AsNoTracking()
-            .Where(x => x.ApplicationId == _currentApplication.ApplicationId)
-            .OrderBy(x => x.Account.Username)
-            .Select(x => new UserListItem(
-                x.Id,
-                x.Account.Email,
-                x.Account.Username,
-                x.IsActive,
-                x.CreatedAt))
+            .Where(
+                x =>
+                    x.ApplicationId == _currentApplication.ApplicationId &&
+                    !x.IsDeleted)
+            .OrderBy(x => x.Username)
+            .Select(
+                x =>
+                    new UserListItem(
+                        x.Id,
+                        x.Email,
+                        x.Username,
+                        x.IsActive,
+                        x.CreatedAt))
             .ToListAsync(cancellationToken);
     }
 }
