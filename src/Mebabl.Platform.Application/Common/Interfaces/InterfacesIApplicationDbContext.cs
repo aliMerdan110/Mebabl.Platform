@@ -74,6 +74,11 @@ public interface IApplicationDbContext
 
     DbSet<StoredFile> StoredFiles { get; }
 
+    // 
+    DbSet<Mebabl.Platform.Domain.Entities.Content.Post> Posts { get; }
+
+DbSet<Mebabl.Platform.Domain.Entities.Content.PostAttachment> PostAttachments { get; }
+
     // Realtime
     DbSet<Channel> Channels { get; }
 

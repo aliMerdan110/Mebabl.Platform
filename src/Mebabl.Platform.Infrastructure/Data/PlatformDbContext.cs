@@ -137,6 +137,13 @@ public DbSet<MessageAttachment> MessageAttachments
 
 
 
+// 
+public DbSet<Mebabl.Platform.Domain.Entities.Content.Post> Posts
+    => Set<Mebabl.Platform.Domain.Entities.Content.Post>();
+
+public DbSet<Mebabl.Platform.Domain.Entities.Content.PostAttachment> PostAttachments
+    => Set<Mebabl.Platform.Domain.Entities.Content.PostAttachment>();
+
 
     // 
 
