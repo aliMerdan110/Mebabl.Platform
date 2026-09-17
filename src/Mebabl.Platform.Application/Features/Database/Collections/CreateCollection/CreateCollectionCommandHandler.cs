@@ -95,11 +95,13 @@ public sealed class CreateCollectionCommandHandler
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new CollectionResponse(
-            collection.Id,
-            collection.ApplicationId,
-            collection.Name,
-            collection.Description,
-            collection.IsActive);
+    collection.Id,
+    collection.ApplicationId,
+    collection.Name,
+    collection.Description,
+    collection.IsActive,
+    collection.CreatedAt,
+    collection.UpdatedAt);
     }
 
     private static string GenerateCode(string name)

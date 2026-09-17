@@ -42,7 +42,9 @@ public sealed class ListCollectionsQueryHandler
                 x.ApplicationId,
                 x.Name,
                 x.Description,
-                x.IsActive))
+                x.IsActive,
+                x.CreatedAt,
+                x.UpdatedAt))
             .ToListAsync(cancellationToken);
     }
 }
