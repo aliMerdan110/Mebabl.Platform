@@ -1,12 +1,8 @@
-
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Mebabl.Platform.Application.Features.SdkStorage.Content;
 using Mebabl.Platform.Application.Features.SdkStorage.Delete;
-using Mebabl.Platform.Application.Features.SdkStorage.Download;
-using Mebabl.Platform.Application.Features.SdkStorage.DTOs;
-using Mebabl.Platform.Application.Features.SdkStorage.List;
-using Mebabl.Platform.Application.Features.SdkStorage.Metadata;
 using Mebabl.Platform.Application.Features.SdkStorage.Upload;
 using Mebabl.Platform.Application.Features.SdkStorage.Url;
 
@@ -17,99 +13,101 @@ namespace Mebabl.Platform.API.Controllers;
 [Authorize(Policy = "Application")]
 public sealed class SdkStorageController : ControllerBase
 {
-private readonly ISender _sender;
+    private readonly ISender _sender;
 
+    public SdkStorageController(ISender sender)
+    {
+        _sender = sender;
+    }
 
-public SdkStorageController(ISender sender)
-{
-    _sender = sender;
-}
+    [HttpPost("upload")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Upload(
+        IFormFile file,
+        [FromForm] string path,
+        [FromForm] bool isPublic = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (file.Length == 0)
+            return BadRequest("File is empty.");
 
-[HttpPost("upload")]
-[Consumes("multipart/form-data")]
-public async Task<ActionResult<StorageFileDto>> Upload(
-    IFormFile file,
-    [FromForm] string path,
-    [FromForm] bool isPublic = false,
-    CancellationToken cancellationToken = default)
-{
-    if (file is null || file.Length == 0)
-        return BadRequest("File is empty.");
+        var applicationId = Guid.Parse(
+            User.FindFirst("applicationId")!.Value);
 
-    await using var stream = file.OpenReadStream();
+        var userIdClaim = User.FindFirst("userId")?.Value;
 
-    var command = new UploadFileCommand(
-        stream,
-        file.FileName,
-        file.ContentType,
-        file.Length,
-        path,
-        isPublic);
+        Guid? userId = Guid.TryParse(userIdClaim, out var parsedUserId)
+            ? parsedUserId
+            : null;
 
-    return Ok(
+        await using var stream = file.OpenReadStream();
+
+        var result = await _sender.Send(
+            new UploadFileCommand(
+                applicationId,
+                userId,
+                stream,
+                file.FileName,
+                file.ContentType,
+                path,
+                isPublic),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpGet("{fileId:guid}/url")]
+    public async Task<IActionResult> GetUrl(
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var applicationId = Guid.Parse(
+            User.FindFirst("applicationId")!.Value);
+
+        var result = await _sender.Send(
+            new GetFileUrlQuery(
+                applicationId,
+                fileId),
+            cancellationToken);
+
+        return Ok(new { url = result });
+    }
+
+    [HttpGet("{fileId:guid}/content")]
+    public async Task<IActionResult> Content(
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var applicationId = Guid.Parse(
+            User.FindFirst("applicationId")!.Value);
+
+        var result = await _sender.Send(
+            new GetFileContentQuery(
+                applicationId,
+                fileId),
+            cancellationToken);
+
+        return File(
+            result.Content,
+            result.ContentType,
+            result.FileName,
+            enableRangeProcessing: true);
+    }
+
+    [HttpDelete("{fileId:guid}")]
+    public async Task<IActionResult> Delete(
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var applicationId = Guid.Parse(
+            User.FindFirst("applicationId")!.Value);
+
         await _sender.Send(
-            command,
-            cancellationToken));
-}
+            new DeleteFileCommand(
+                applicationId,
+                fileId),
+            cancellationToken);
 
-[HttpGet("files")]
-public async Task<IActionResult> List(
-    [FromQuery] string? path,
-    CancellationToken cancellationToken)
-{
-    return Ok(
-        await _sender.Send(
-            new ListFilesQuery(path),
-            cancellationToken));
-}
-
-[HttpGet("files/{fileId:guid}")]
-public async Task<IActionResult> Metadata(
-    Guid fileId,
-    CancellationToken cancellationToken)
-{
-    return Ok(
-        await _sender.Send(
-            new GetFileMetadataQuery(fileId),
-            cancellationToken));
-}
-
-[HttpGet("files/{fileId:guid}/url")]
-public async Task<ActionResult<StorageDownloadUrlDto>> Url(
-    Guid fileId,
-    CancellationToken cancellationToken)
-{
-    return Ok(
-        await _sender.Send(
-            new GetFileDownloadUrlQuery(fileId),
-            cancellationToken));
-}
-
-[HttpGet("files/{fileId:guid}/download")]
-public async Task<IActionResult> Download(
-    Guid fileId,
-    CancellationToken cancellationToken)
-{
-    var result = await _sender.Send(
-        new DownloadFileQuery(fileId),
-        cancellationToken);
-
-    return File(
-        result.Stream,
-        result.ContentType,
-        result.FileName);
-}
-
-[HttpDelete("files/{fileId:guid}")]
-public async Task<IActionResult> Delete(
-    Guid fileId,
-    CancellationToken cancellationToken)
-{
-    await _sender.Send(
-        new DeleteFileCommand(fileId),
-        cancellationToken);
-
-    return NoContent();
-}
-
+        return NoContent();
+    }
 }

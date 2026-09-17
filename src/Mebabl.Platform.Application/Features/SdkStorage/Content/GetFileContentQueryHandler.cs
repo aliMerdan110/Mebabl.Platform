@@ -3,15 +3,15 @@ using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Common.Storage;
 
-namespace Mebabl.Platform.Application.Features.SdkStorage.Delete;
+namespace Mebabl.Platform.Application.Features.SdkStorage.Content;
 
-public sealed class DeleteFileCommandHandler
-    : IRequestHandler<DeleteFileCommand>
+public sealed class GetFileContentQueryHandler
+    : IRequestHandler<GetFileContentQuery, GetFileContentResult>
 {
     private readonly IApplicationDbContext _db;
     private readonly IStorageProvider _storage;
 
-    public DeleteFileCommandHandler(
+    public GetFileContentQueryHandler(
         IApplicationDbContext db,
         IStorageProvider storage)
     {
@@ -19,11 +19,12 @@ public sealed class DeleteFileCommandHandler
         _storage = storage;
     }
 
-    public async Task Handle(
-        DeleteFileCommand request,
+    public async Task<GetFileContentResult> Handle(
+        GetFileContentQuery request,
         CancellationToken cancellationToken)
     {
         var file = await _db.StoredFiles
+            .AsNoTracking()
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.FileId &&
@@ -33,12 +34,14 @@ public sealed class DeleteFileCommandHandler
         if (file is null)
             throw new KeyNotFoundException("File not found.");
 
-        await _storage.DeleteAsync(
+        var stream = await _storage.OpenReadAsync(
             file.StorageKey,
             cancellationToken);
 
-        _db.StoredFiles.Remove(file);
-
-        await _db.SaveChangesAsync(cancellationToken);
+        return new GetFileContentResult(
+            stream,
+            file.ContentType,
+            file.FileName,
+            file.Size);
     }
 }

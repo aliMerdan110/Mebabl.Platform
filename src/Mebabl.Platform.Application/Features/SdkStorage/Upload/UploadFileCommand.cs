@@ -1,13 +1,14 @@
 using MediatR;
-using Mebabl.Platform.Application.Features.SdkStorage.DTOs;
+using Mebabl.Platform.Domain.Entities.Storage;
 
 namespace Mebabl.Platform.Application.Features.SdkStorage.Upload;
 
 public sealed record UploadFileCommand(
+    Guid ApplicationId,
+    Guid? UserId,
     Stream Content,
     string FileName,
     string ContentType,
-    long Size,
     string Path,
     bool IsPublic
-) : IRequest<StorageFileDto>;
+) : IRequest<StoredFile>;
