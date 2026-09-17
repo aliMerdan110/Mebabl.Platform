@@ -3,12 +3,13 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Common.Security;
+using Mebabl.Platform.Application.Features.Database.Documents.DTOs;
 using Mebabl.Platform.Domain.Entities.Database;
 
 namespace Mebabl.Platform.Application.Features.Database.Documents.CreateDocument;
 
 public sealed class CreateDocumentCommandHandler
-    : IRequestHandler<CreateDocumentCommand, Guid>
+    : IRequestHandler<CreateDocumentCommand, DocumentResponse>
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentUser _currentUser;
@@ -24,7 +25,7 @@ public sealed class CreateDocumentCommandHandler
         _security = security;
     }
 
-    public async Task<Guid> Handle(
+    public async Task<DocumentResponse> Handle(
         CreateDocumentCommand request,
         CancellationToken cancellationToken)
     {
@@ -68,6 +69,12 @@ public sealed class CreateDocumentCommandHandler
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return document.Id;
+        return new DocumentResponse(
+            document.Id,
+            document.Key,
+            document.Data,
+            document.Version,
+            document.CreatedAt,
+            document.UpdatedAt);
     }
 }
