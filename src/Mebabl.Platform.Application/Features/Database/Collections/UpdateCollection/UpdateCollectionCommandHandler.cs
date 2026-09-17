@@ -82,7 +82,9 @@ public sealed class UpdateCollectionCommandHandler
             collection.ApplicationId,
             collection.Name,
             collection.Description,
-            collection.IsActive);
+            collection.IsActive,
+            collection.CreatedAt,
+collection.UpdatedAt);
     }
 
     private static string GenerateCode(string name)

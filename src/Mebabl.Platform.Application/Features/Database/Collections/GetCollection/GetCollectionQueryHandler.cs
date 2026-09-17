@@ -41,7 +41,9 @@ public sealed class GetCollectionQueryHandler
                 x.ApplicationId,
                 x.Name,
                 x.Description,
-                x.IsActive))
+                x.IsActive,
+                x.CreatedAt,
+                x.UpdatedAt))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (collection is null)
