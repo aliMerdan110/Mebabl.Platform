@@ -7,13 +7,13 @@ public class PostAttachment : AuditableEntity
 {
     public Guid PostId { get; set; }
 
-    public Post Post { get; set; } = null!;
-
     public Guid StorageFileId { get; set; }
-
-    public StoredFile StorageFile { get; set; } = null!;
 
     public string Type { get; set; } = "File";
 
     public int Order { get; set; }
+
+    public Post Post { get; set; } = null!;
+
+    public StoredFile StorageFile { get; set; } = null!;
 }

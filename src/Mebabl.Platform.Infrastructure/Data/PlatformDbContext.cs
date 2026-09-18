@@ -12,6 +12,7 @@ using Mebabl.Platform.Domain.Entities.Notifications;
 using Mebabl.Platform.Domain.Modules.Chat.Entities;
 using Mebabl.Platform.Domain.Entities.Applications;
 using Mebabl.Platform.Domain.Live;
+using Mebabl.Platform.Domain.Entities.Social;
 
 
 
@@ -143,6 +144,16 @@ public DbSet<Mebabl.Platform.Domain.Entities.Content.Post> Posts
 
 public DbSet<Mebabl.Platform.Domain.Entities.Content.PostAttachment> PostAttachments
     => Set<Mebabl.Platform.Domain.Entities.Content.PostAttachment>();
+
+
+    // Social 
+public DbSet<SocialReaction> SocialReactions { get; set; }
+
+public DbSet<SocialComment> SocialComments { get; set; }
+
+public DbSet<SocialShare> SocialShares { get; set; }
+
+public DbSet<SocialRepost> SocialReposts { get; set; }
 
 
     // 

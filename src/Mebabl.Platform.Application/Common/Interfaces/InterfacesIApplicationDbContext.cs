@@ -8,6 +8,8 @@ using Mebabl.Platform.Domain.Entities.Notifications;
 using Mebabl.Platform.Domain.Modules.Chat.Entities;
 using Mebabl.Platform.Domain.Entities.Applications;
 using Mebabl.Platform.Domain.Live;
+using Mebabl.Platform.Domain.Entities.Content;
+using Mebabl.Platform.Domain.Entities.Social;
 
 namespace Mebabl.Platform.Application.Common.Interfaces;
 
@@ -74,10 +76,22 @@ public interface IApplicationDbContext
 
     DbSet<StoredFile> StoredFiles { get; }
 
-    // 
-    DbSet<Mebabl.Platform.Domain.Entities.Content.Post> Posts { get; }
+    
 
-DbSet<Mebabl.Platform.Domain.Entities.Content.PostAttachment> PostAttachments { get; }
+
+// content
+
+DbSet<Post> Posts { get; }
+DbSet<PostAttachment> PostAttachments { get; }
+
+// Social
+DbSet<SocialReaction> SocialReactions { get; }
+
+DbSet<SocialComment> SocialComments { get; }
+
+DbSet<SocialShare> SocialShares { get; }
+
+DbSet<SocialRepost> SocialReposts { get; }
 
     // Realtime
     DbSet<Channel> Channels { get; }
