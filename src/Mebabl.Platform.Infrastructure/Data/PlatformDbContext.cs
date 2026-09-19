@@ -13,6 +13,7 @@ using Mebabl.Platform.Domain.Modules.Chat.Entities;
 using Mebabl.Platform.Domain.Entities.Applications;
 using Mebabl.Platform.Domain.Live;
 using Mebabl.Platform.Domain.Entities.Social;
+using Mebabl.Platform.Domain.Entities.Commerce;
 
 
 
@@ -155,6 +156,14 @@ public DbSet<SocialShare> SocialShares { get; set; }
 
 public DbSet<SocialRepost> SocialReposts { get; set; }
 
+
+// Commerce
+public DbSet<Product> Products => Set<Product>();
+public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+public DbSet<Cart> Carts => Set<Cart>();
+public DbSet<CartItem> CartItems => Set<CartItem>();
+public DbSet<Order> Orders => Set<Order>();
+public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
     // 
 

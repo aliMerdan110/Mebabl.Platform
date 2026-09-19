@@ -10,6 +10,7 @@ using Mebabl.Platform.Domain.Entities.Applications;
 using Mebabl.Platform.Domain.Live;
 using Mebabl.Platform.Domain.Entities.Content;
 using Mebabl.Platform.Domain.Entities.Social;
+using Mebabl.Platform.Domain.Entities.Commerce;
 
 namespace Mebabl.Platform.Application.Common.Interfaces;
 
@@ -114,6 +115,22 @@ DbSet<SocialRepost> SocialReposts { get; }
     DbSet<MessageReaction> MessageReactions { get; }
 
     DbSet<MessageAttachment> MessageAttachments { get; }
+
+    // Commerce
+    DbSet<Product> Products { get; }
+
+DbSet<ProductImage> ProductImages { get; }
+
+DbSet<Cart> Carts { get; }
+
+DbSet<CartItem> CartItems { get; }
+
+DbSet<Order> Orders { get; }
+
+DbSet<OrderItem> OrderItems { get; }
+
+// 
+
 
     Task<int> SaveChangesAsync(
         CancellationToken cancellationToken);

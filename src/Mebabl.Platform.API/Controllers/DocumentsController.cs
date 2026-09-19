@@ -64,23 +64,23 @@ public sealed class DocumentsController : ControllerBase
     }
 
     [HttpPut("{documentId:guid}")]
-    public async Task<IActionResult> Update(
-        Guid collectionId,
-        Guid documentId,
-        UpdateDocumentRequest request,
-        CancellationToken cancellationToken)
-    {
-        await _mediator.Send(
-            new UpdateDocumentCommand(
-                collectionId,
-                documentId,
-                request.Key,
-                request.Data,
-                request.ExpectedVersion),
-            cancellationToken);
+public async Task<IActionResult> Update(
+    Guid collectionId,
+    Guid documentId,
+    UpdateDocumentRequestDto request,
+    CancellationToken cancellationToken)
+{
+    await _mediator.Send(
+        new UpdateDocumentCommand(
+            collectionId,
+            documentId,
+            request.Key,
+            request.Data,
+            request.ExpectedVersion),
+        cancellationToken);
 
-        return NoContent();
-    }
+    return NoContent();
+}
 
     [HttpDelete("{documentId:guid}")]
     public async Task<IActionResult> Delete(
@@ -101,8 +101,8 @@ public sealed class DocumentsController : ControllerBase
         string Key,
         JsonDocument Data);
 
-    public sealed record UpdateDocumentRequest(
-        string Key,
-        JsonDocument Data,
-        int ExpectedVersion);
+    public sealed record UpdateDocumentRequestDto(
+    string Key,
+    JsonDocument Data,
+    int ExpectedVersion);
 }
