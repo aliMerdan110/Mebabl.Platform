@@ -59,6 +59,7 @@ public static class AuthenticationConfiguration
 
         services.AddAuthorization(options =>
         {
+            // Application API Key فقط.
             options.AddPolicy("Application", policy =>
             {
                 policy.AddAuthenticationSchemes(
@@ -71,12 +72,31 @@ public static class AuthenticationConfiguration
                     "application");
             });
 
+            // User JWT فقط.
             options.AddPolicy("User", policy =>
             {
                 policy.AddAuthenticationSchemes(
                     JwtBearerDefaults.AuthenticationScheme);
 
                 policy.RequireAuthenticatedUser();
+
+                policy.RequireClaim(
+                    "type",
+                    "user");
+            });
+
+            // Application API Key + User JWT.
+            options.AddPolicy("ApplicationUser", policy =>
+            {
+                policy.AddAuthenticationSchemes(
+                    ApplicationScheme,
+                    JwtBearerDefaults.AuthenticationScheme);
+
+                policy.RequireAuthenticatedUser();
+
+                policy.RequireClaim(
+                    "type",
+                    "application");
 
                 policy.RequireClaim(
                     "type",

@@ -10,7 +10,7 @@ using Mebabl.Platform.Application.Features.SdkContent.UpdatePost;
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
-[Authorize(Policy = "Application")]
+[Authorize(Policy = "ApplicationUser")]
 [Route("api/sdk/content/posts")]
 public sealed class SdkContentController : ControllerBase
 {
@@ -26,7 +26,9 @@ public sealed class SdkContentController : ControllerBase
         [FromBody] CreatePostCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(command, cancellationToken);
+        var result = await _sender.Send(
+            command,
+            cancellationToken);
 
         return CreatedAtAction(
             nameof(Get),
