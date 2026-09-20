@@ -1,27 +1,29 @@
+
+
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-using Mebabl.Platform.Application.Features.Commerce.Cart.AddCartItem;
+using Mebabl.Platform.Application.Features.Commerce.Products.CreateProduct;
+using Mebabl.Platform.Application.Features.Commerce.Products.GetProduct;
+using Mebabl.Platform.Application.Features.Commerce.Products.ListProducts;
+using Mebabl.Platform.Application.Features.Commerce.Products.UpdateProduct;
+using Mebabl.Platform.Application.Features.Commerce.Products.DeleteProduct;
+
 using Mebabl.Platform.Application.Features.Commerce.Cart.GetCart;
-using Mebabl.Platform.Application.Features.Commerce.Cart.RemoveCartItem;
+using Mebabl.Platform.Application.Features.Commerce.Cart.AddCartItem;
 using Mebabl.Platform.Application.Features.Commerce.Cart.UpdateCartItem;
+using Mebabl.Platform.Application.Features.Commerce.Cart.RemoveCartItem;
 
 using Mebabl.Platform.Application.Features.Commerce.Orders.CreateOrder;
 using Mebabl.Platform.Application.Features.Commerce.Orders.GetOrder;
 using Mebabl.Platform.Application.Features.Commerce.Orders.ListOrders;
 
-using Mebabl.Platform.Application.Features.Commerce.Products.CreateProduct;
-using Mebabl.Platform.Application.Features.Commerce.Products.DeleteProduct;
-using Mebabl.Platform.Application.Features.Commerce.Products.GetProduct;
-using Mebabl.Platform.Application.Features.Commerce.Products.ListProducts;
-using Mebabl.Platform.Application.Features.Commerce.Products.UpdateProduct;
-
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
-[Authorize(Policy = "ApplicationUser")]
 [Route("api/sdk/commerce")]
+[Authorize(Policy = "Application")]
 public sealed class SdkCommerceController : ControllerBase
 {
     private readonly ISender _sender;
@@ -31,23 +33,18 @@ public sealed class SdkCommerceController : ControllerBase
         _sender = sender;
     }
 
-    // =========================================================
-    // Products
-    // =========================================================
-
     [HttpPost("products")]
     public async Task<IActionResult> CreateProduct(
         [FromBody] CreateProductCommand command,
         CancellationToken cancellationToken)
     {
-        var id = await _sender.Send(
-            command,
-            cancellationToken);
+        var id = await _sender.Send(command, cancellationToken);
 
         return Ok(new { id });
     }
 
     [HttpGet("products/{productId:guid}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetProduct(
         Guid productId,
         CancellationToken cancellationToken)
@@ -62,15 +59,14 @@ public sealed class SdkCommerceController : ControllerBase
     }
 
     [HttpGet("products")]
+    [AllowAnonymous]
     public async Task<IActionResult> ListProducts(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
         var result = await _sender.Send(
-            new ListProductsQuery(
-                page,
-                pageSize),
+            new ListProductsQuery(page, pageSize),
             cancellationToken);
 
         return Ok(result);
@@ -93,9 +89,7 @@ public sealed class SdkCommerceController : ControllerBase
                 request.IsActive),
             cancellationToken);
 
-        return result
-            ? NoContent()
-            : NotFound();
+        return result ? NoContent() : NotFound();
     }
 
     [HttpDelete("products/{productId:guid}")]
@@ -107,24 +101,16 @@ public sealed class SdkCommerceController : ControllerBase
             new DeleteProductCommand(productId),
             cancellationToken);
 
-        return result
-            ? NoContent()
-            : NotFound();
+        return result ? NoContent() : NotFound();
     }
-
-    // =========================================================
-    // Cart
-    // =========================================================
 
     [HttpGet("cart")]
     public async Task<IActionResult> GetCart(
         CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(
+        return Ok(await _sender.Send(
             new GetCartQuery(),
-            cancellationToken);
-
-        return Ok(result);
+            cancellationToken));
     }
 
     [HttpPost("cart/items")]
@@ -132,9 +118,7 @@ public sealed class SdkCommerceController : ControllerBase
         [FromBody] AddCartItemCommand command,
         CancellationToken cancellationToken)
     {
-        var id = await _sender.Send(
-            command,
-            cancellationToken);
+        var id = await _sender.Send(command, cancellationToken);
 
         return Ok(new { id });
     }
@@ -151,9 +135,7 @@ public sealed class SdkCommerceController : ControllerBase
                 request.Quantity),
             cancellationToken);
 
-        return result
-            ? NoContent()
-            : NotFound();
+        return result ? NoContent() : NotFound();
     }
 
     [HttpDelete("cart/items/{cartItemId:guid}")]
@@ -165,14 +147,8 @@ public sealed class SdkCommerceController : ControllerBase
             new RemoveCartItemCommand(cartItemId),
             cancellationToken);
 
-        return result
-            ? NoContent()
-            : NotFound();
+        return result ? NoContent() : NotFound();
     }
-
-    // =========================================================
-    // Orders
-    // =========================================================
 
     [HttpPost("orders")]
     public async Task<IActionResult> CreateOrder(
@@ -206,17 +182,11 @@ public sealed class SdkCommerceController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var result = await _sender.Send(
-            new ListOrdersQuery(
-                page,
-                pageSize),
+            new ListOrdersQuery(page, pageSize),
             cancellationToken);
 
         return Ok(result);
     }
-
-    // =========================================================
-    // Requests
-    // =========================================================
 
     public sealed record UpdateProductRequest(
         string Name,

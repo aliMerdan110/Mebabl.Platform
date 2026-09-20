@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
 using Mebabl.Platform.Application.Features.Live.Sessions.PublishStream;
 using Mebabl.Platform.Application.Features.Live.Sessions.StopStream;
 using Mebabl.Platform.Application.Features.Live.Streams.GetStreams;
@@ -9,57 +8,57 @@ using Mebabl.Platform.Application.Features.Live.Streams.GetStreams;
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
-[Authorize(Policy = "ApplicationUser")]
 [Route("api/sdk/live")]
+[Authorize]
 public sealed class SdkLiveController : ControllerBase
 {
-    private readonly ISender _sender;
+    private readonly IMediator _mediator;
 
-    public SdkLiveController(ISender sender)
+    public SdkLiveController(IMediator mediator)
     {
-        _sender = sender;
+        _mediator = mediator;
     }
 
-    // =========================================================
-    // Streams
-    // =========================================================
+    // ------------------------------------------------------------
+    // Get Live Streams
+    // ------------------------------------------------------------
 
     [HttpGet("streams")]
     public async Task<IActionResult> GetStreams(
         CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(
+        var result = await _mediator.Send(
             new GetStreamsQuery(),
             cancellationToken);
 
         return Ok(result);
     }
 
-    // =========================================================
-    // Publish
-    // =========================================================
+    // ------------------------------------------------------------
+    // Start Publish Session
+    // ------------------------------------------------------------
 
     [HttpPost("publish")]
     public async Task<IActionResult> Publish(
         CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(
+        var result = await _mediator.Send(
             new PublishStreamCommand(),
             cancellationToken);
 
         return Ok(result);
     }
 
-    // =========================================================
-    // Stop
-    // =========================================================
+    // ------------------------------------------------------------
+    // Stop Publish Session
+    // ------------------------------------------------------------
 
     [HttpPost("stop")]
     public async Task<IActionResult> Stop(
         [FromBody] StopStreamRequest request,
         CancellationToken cancellationToken)
     {
-        await _sender.Send(
+        await _mediator.Send(
             new StopStreamCommand(
                 request.SessionId),
             cancellationToken);

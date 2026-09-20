@@ -6,17 +6,17 @@ using Mebabl.Platform.Application.Features.SdkSocial.Comments.CreateComment;
 using Mebabl.Platform.Application.Features.SdkSocial.Comments.DeleteComment;
 using Mebabl.Platform.Application.Features.SdkSocial.Comments.GetComments;
 using Mebabl.Platform.Application.Features.SdkSocial.Comments.UpdateComment;
+using Mebabl.Platform.Application.Features.SdkSocial.Reposts.CreateRepost;
+using Mebabl.Platform.Application.Features.SdkSocial.Shares.CreateShare;
 using Mebabl.Platform.Application.Features.SdkSocial.PostStats.GetPostStats;
 using Mebabl.Platform.Application.Features.SdkSocial.Reactions.GetReactions;
 using Mebabl.Platform.Application.Features.SdkSocial.Reactions.React;
 using Mebabl.Platform.Application.Features.SdkSocial.Reactions.RemoveReaction;
-using Mebabl.Platform.Application.Features.SdkSocial.Reposts.CreateRepost;
-using Mebabl.Platform.Application.Features.SdkSocial.Shares.CreateShare;
 
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
-[Authorize(Policy = "ApplicationUser")]
+[Authorize(Policy = "Application")]
 [Route("api/sdk/social")]
 public sealed class SdkSocialController : ControllerBase
 {
