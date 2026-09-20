@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 using Mebabl.Platform.Application.Features.SdkStorage.Content;
 using Mebabl.Platform.Application.Features.SdkStorage.Delete;
 using Mebabl.Platform.Application.Features.SdkStorage.Upload;
@@ -9,8 +10,8 @@ using Mebabl.Platform.Application.Features.SdkStorage.Url;
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
+[Authorize(Policy = "ApplicationUser")]
 [Route("api/sdk/storage")]
-[Authorize(Policy = "Application")]
 public sealed class SdkStorageController : ControllerBase
 {
     private readonly ISender _sender;
@@ -19,6 +20,10 @@ public sealed class SdkStorageController : ControllerBase
     {
         _sender = sender;
     }
+
+    // =========================================================
+    // Upload
+    // =========================================================
 
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
@@ -36,9 +41,11 @@ public sealed class SdkStorageController : ControllerBase
 
         var userIdClaim = User.FindFirst("userId")?.Value;
 
-        Guid? userId = Guid.TryParse(userIdClaim, out var parsedUserId)
-            ? parsedUserId
-            : null;
+        Guid? userId = Guid.TryParse(
+            userIdClaim,
+            out var parsedUserId)
+                ? parsedUserId
+                : null;
 
         await using var stream = file.OpenReadStream();
 
@@ -56,6 +63,10 @@ public sealed class SdkStorageController : ControllerBase
         return Ok(result);
     }
 
+    // =========================================================
+    // URL
+    // =========================================================
+
     [HttpGet("{fileId:guid}/url")]
     public async Task<IActionResult> GetUrl(
         Guid fileId,
@@ -72,6 +83,10 @@ public sealed class SdkStorageController : ControllerBase
 
         return Ok(new { url = result });
     }
+
+    // =========================================================
+    // Content
+    // =========================================================
 
     [HttpGet("{fileId:guid}/content")]
     public async Task<IActionResult> Content(
@@ -93,6 +108,10 @@ public sealed class SdkStorageController : ControllerBase
             result.FileName,
             enableRangeProcessing: true);
     }
+
+    // =========================================================
+    // Delete
+    // =========================================================
 
     [HttpDelete("{fileId:guid}")]
     public async Task<IActionResult> Delete(

@@ -1,4 +1,3 @@
-
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,19 +6,17 @@ using Mebabl.Platform.Application.Features.SdkSocial.Comments.CreateComment;
 using Mebabl.Platform.Application.Features.SdkSocial.Comments.DeleteComment;
 using Mebabl.Platform.Application.Features.SdkSocial.Comments.GetComments;
 using Mebabl.Platform.Application.Features.SdkSocial.Comments.UpdateComment;
-using Mebabl.Platform.Application.Features.SdkSocial.Reposts.CreateRepost;
-using Mebabl.Platform.Application.Features.SdkSocial.Shares.CreateShare;
 using Mebabl.Platform.Application.Features.SdkSocial.PostStats.GetPostStats;
-
 using Mebabl.Platform.Application.Features.SdkSocial.Reactions.GetReactions;
 using Mebabl.Platform.Application.Features.SdkSocial.Reactions.React;
 using Mebabl.Platform.Application.Features.SdkSocial.Reactions.RemoveReaction;
-
+using Mebabl.Platform.Application.Features.SdkSocial.Reposts.CreateRepost;
+using Mebabl.Platform.Application.Features.SdkSocial.Shares.CreateShare;
 
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
-[Authorize(Policy = "Application")]
+[Authorize(Policy = "ApplicationUser")]
 [Route("api/sdk/social")]
 public sealed class SdkSocialController : ControllerBase
 {
@@ -168,30 +165,40 @@ public sealed class SdkSocialController : ControllerBase
         return Ok(result);
     }
 
+    // =========================================================
+    // Post Stats
+    // =========================================================
 
-// 
+    [HttpGet("posts/stats")]
+    public async Task<IActionResult> GetPostStats(
+        [FromQuery] string postIds,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(postIds))
+            return BadRequest("postIds is required.");
 
+        var ids = postIds
+            .Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries)
+            .Select(id =>
+                Guid.TryParse(id, out var value)
+                    ? value
+                    : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
 
-    // 
-[HttpGet("posts/stats")]
-public async Task<IActionResult> GetPostStats(
-    [FromQuery] string postIds,
-    CancellationToken cancellationToken)
-{
-    var ids = postIds
-        .Split(',', StringSplitOptions.RemoveEmptyEntries)
-        .Select(Guid.Parse)
-        .Distinct()
-        .ToArray();
+        if (ids.Length == 0)
+            return BadRequest("No valid post ids were provided.");
 
-    var result = await _sender.Send(
-        new GetPostStatsQuery(ids),
-        cancellationToken);
+        var result = await _sender.Send(
+            new GetPostStatsQuery(ids),
+            cancellationToken);
 
-    return Ok(result);
-}
-
-
+        return Ok(result);
+    }
 }
 
 public sealed record ReactRequest(

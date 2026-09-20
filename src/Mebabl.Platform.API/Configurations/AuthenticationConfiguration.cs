@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Mebabl.Platform.Infrastructure.Authentication.ApplicationApiKey;
+using Mebabl.Platform.Infrastructure.Authentication.Authorization;
 using Mebabl.Platform.Infrastructure.Authentication.Jwt;
 
 namespace Mebabl.Platform.API.Configuration;
@@ -53,13 +54,10 @@ public static class AuthenticationConfiguration
                 ApplicationApiKeyAuthenticationOptions,
                 ApplicationApiKeyAuthenticationHandler>(
                 ApplicationScheme,
-                _ =>
-                {
-                });
+                _ => { });
 
         services.AddAuthorization(options =>
         {
-            // Application API Key فقط.
             options.AddPolicy("Application", policy =>
             {
                 policy.AddAuthenticationSchemes(
@@ -72,7 +70,6 @@ public static class AuthenticationConfiguration
                     "application");
             });
 
-            // User JWT فقط.
             options.AddPolicy("User", policy =>
             {
                 policy.AddAuthenticationSchemes(
@@ -85,22 +82,19 @@ public static class AuthenticationConfiguration
                     "user");
             });
 
-            // Application API Key + User JWT.
             options.AddPolicy("ApplicationUser", policy =>
             {
                 policy.AddAuthenticationSchemes(
-                    ApplicationScheme,
                     JwtBearerDefaults.AuthenticationScheme);
 
                 policy.RequireAuthenticatedUser();
 
                 policy.RequireClaim(
                     "type",
-                    "application");
-
-                policy.RequireClaim(
-                    "type",
                     "user");
+
+                policy.Requirements.Add(
+                    new ApplicationUserRequirement());
             });
         });
 

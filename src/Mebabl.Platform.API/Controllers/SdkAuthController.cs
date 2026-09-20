@@ -1,4 +1,3 @@
-
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -58,7 +57,7 @@ public sealed class SdkAuthController : BaseApiController
     }
 
     [HttpPost("logout")]
-    [Authorize(Policy = "Application")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> Logout(
         [FromBody] SdkLogoutCommand command,
         CancellationToken cancellationToken)
@@ -70,8 +69,8 @@ public sealed class SdkAuthController : BaseApiController
         return NoContent();
     }
 
-    [Authorize(Policy = "User")]
     [HttpGet("me")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> Me(
         CancellationToken cancellationToken)
     {
@@ -83,6 +82,7 @@ public sealed class SdkAuthController : BaseApiController
     }
 
     [HttpPost("change-password")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> ChangePassword(
         [FromBody] SdkChangePasswordCommand command,
         CancellationToken cancellationToken)
@@ -132,7 +132,7 @@ public sealed class SdkAuthController : BaseApiController
     }
 
     [HttpPost("resend-verification-email")]
-    [Authorize(Policy = "User")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> ResendVerificationEmail(
         CancellationToken cancellationToken)
     {

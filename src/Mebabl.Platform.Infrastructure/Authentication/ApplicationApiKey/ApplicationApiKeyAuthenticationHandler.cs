@@ -1,9 +1,9 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 
 namespace Mebabl.Platform.Infrastructure.Authentication.ApplicationApiKey;
@@ -24,7 +24,8 @@ public sealed class ApplicationApiKeyAuthenticationHandler
         _dbContext = dbContext;
     }
 
-    protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
+    protected override async Task<AuthenticateResult>
+        HandleAuthenticateAsync()
     {
         if (!Request.Headers.TryGetValue(
                 "X-Application-Id",
@@ -48,6 +49,12 @@ public sealed class ApplicationApiKeyAuthenticationHandler
                 "Invalid application id.");
         }
 
+        if (applicationId == Guid.Empty)
+        {
+            return AuthenticateResult.Fail(
+                "Invalid application id.");
+        }
+
         var apiKey = apiKeyHeader.ToString();
 
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -64,7 +71,9 @@ public sealed class ApplicationApiKeyAuthenticationHandler
                     x.ApiKey == apiKey &&
                     x.ApplicationId == applicationId &&
                     x.IsActive &&
-                    x.Application.IsActive,
+                    !x.IsDeleted &&
+                    x.Application.IsActive &&
+                    !x.Application.IsDeleted,
                 Context.RequestAborted);
 
         if (credential is null)

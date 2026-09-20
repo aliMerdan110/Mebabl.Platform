@@ -61,14 +61,16 @@ public sealed class SdkContentController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPatch("{postId:guid}")]
+    [HttpPut("{postId:guid}")]
     public async Task<IActionResult> Update(
         Guid postId,
         [FromBody] UpdatePostRequest request,
         CancellationToken cancellationToken)
     {
         var result = await _sender.Send(
-            new UpdatePostCommand(postId, request.Text),
+            new UpdatePostCommand(
+                postId,
+                request.Text),
             cancellationToken);
 
         return Ok(result);
@@ -87,4 +89,5 @@ public sealed class SdkContentController : ControllerBase
     }
 }
 
-public sealed record UpdatePostRequest(string? Text);
+public sealed record UpdatePostRequest(
+    string? Text);
