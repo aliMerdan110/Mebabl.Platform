@@ -4,24 +4,29 @@ using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Infrastructure.Data.Configurations.Core;
 
-public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermission>
+public sealed class RolePermissionConfiguration
+    : IEntityTypeConfiguration<RolePermission>
 {
-    public void Configure(EntityTypeBuilder<RolePermission> builder)
+    public void Configure(
+        EntityTypeBuilder<RolePermission> builder)
     {
+        // يربط الدور بالصلاحية بعلاقة مركبة فريدة.
         builder.ToTable("RolePermissions");
 
-        // استخدام مفتاح مركب لأن الكيان لا يملك Id
-        builder.HasKey(x => new { x.RoleId, x.PermissionId });
+        builder.HasKey(x => new
+        {
+            x.RoleId,
+            x.PermissionId
+        });
 
-        // العلاقات
         builder.HasOne(x => x.Role)
-               .WithMany(r => r.RolePermissions)
-               .HasForeignKey(x => x.RoleId)
-               .OnDelete(DeleteBehavior.Cascade);
+            .WithMany(x => x.RolePermissions)
+            .HasForeignKey(x => x.RoleId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(x => x.Permission)
-               .WithMany(p => p.RolePermissions)
-               .HasForeignKey(x => x.PermissionId)
-               .OnDelete(DeleteBehavior.Cascade);
+            .WithMany(x => x.RolePermissions)
+            .HasForeignKey(x => x.PermissionId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -1,41 +1,56 @@
 using System.Security.Claims;
-using Mebabl.Platform.Application.Common.Interfaces;
+
 using Microsoft.AspNetCore.Http;
+
+using Mebabl.Platform.Application.Common.Interfaces;
 
 namespace Mebabl.Platform.Infrastructure.Services.CurrentUser;
 
-public class CurrentUser : ICurrentUser
+public sealed class CurrentUser : ICurrentUser
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public CurrentUser(IHttpContextAccessor httpContextAccessor)
+    public CurrentUser(
+        IHttpContextAccessor httpContextAccessor)
     {
         _httpContextAccessor = httpContextAccessor;
     }
 
-    private ClaimsPrincipal? User =>
+    private ClaimsPrincipal? Principal =>
         _httpContextAccessor.HttpContext?.User;
 
+    public bool IsAuthenticated =>
+        Principal?.Identity?.IsAuthenticated == true &&
+        Principal.HasClaim("type", "user");
+
     public Guid UserId =>
-        GetGuidClaim("userId");
+        GetRequiredGuidClaim("userId");
 
     public Guid AccountId =>
-        GetGuidClaim("accountId");
+        GetRequiredGuidClaim("accountId");
 
     public Guid ApplicationId =>
-        GetGuidClaim("applicationId");
+        GetRequiredGuidClaim("applicationId");
 
-
-    public bool IsAuthenticated =>
-        User?.Identity?.IsAuthenticated == true;
-
-
-    private Guid GetGuidClaim(string claimType)
+    private Guid GetRequiredGuidClaim(
+        string claimType)
     {
-        var value = User?.FindFirst(claimType)?.Value;
+        if (!IsAuthenticated)
+        {
+            throw new UnauthorizedAccessException(
+                "The current user is not authenticated.");
+        }
 
-        return Guid.TryParse(value, out var id)
-            ? id
-            : Guid.Empty;
+        var value = Principal?
+            .FindFirstValue(claimType);
+
+        if (!Guid.TryParse(value, out var id) ||
+            id == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                $"The current user does not contain a valid '{claimType}' claim.");
+        }
+
+        return id;
     }
 }

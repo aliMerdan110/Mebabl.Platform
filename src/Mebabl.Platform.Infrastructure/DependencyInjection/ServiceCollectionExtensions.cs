@@ -44,42 +44,27 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // ---------------------------------------------------------
-        // Password Reset
-        // ---------------------------------------------------------
+        // تسجيل خدمات البنية التحتية الأساسية للمنصة.
 
         services.AddScoped<
             IPasswordResetTokenService,
             PasswordResetTokenService>();
 
-        // ---------------------------------------------------------
-        // Email
-        // ---------------------------------------------------------
-
         services.Configure<EmailOptions>(
-            configuration.GetSection(EmailOptions.SectionName));
+            configuration.GetSection(
+                EmailOptions.SectionName));
 
         services.AddScoped<
             IEmailService,
             SmtpEmailService>();
 
-        // ---------------------------------------------------------
-        // JWT
-        // ---------------------------------------------------------
-
         services.Configure<JwtOptions>(
-            configuration.GetSection(JwtOptions.SectionName));
-
-        // ---------------------------------------------------------
-        // Console
-        // ---------------------------------------------------------
+            configuration.GetSection(
+                JwtOptions.SectionName));
 
         services.Configure<ConsoleOptions>(
-            configuration.GetSection(ConsoleOptions.SectionName));
-
-        // ---------------------------------------------------------
-        // Authorization
-        // ---------------------------------------------------------
+            configuration.GetSection(
+                ConsoleOptions.SectionName));
 
         services.AddSingleton<
             IAuthorizationPolicyProvider,
@@ -89,33 +74,24 @@ public static class ServiceCollectionExtensions
             IAuthorizationHandler,
             PermissionAuthorizationHandler>();
 
-        services.AddSingleton<
+        services.AddScoped<
             IAuthorizationHandler,
             ApplicationUserAuthorizationHandler>();
 
-        // ---------------------------------------------------------
-        // Database
-        // ---------------------------------------------------------
+        services.AddDbContext<PlatformDbContext>(
+            options =>
+                options.UseNpgsql(
+                    configuration.GetConnectionString(
+                        "DefaultConnection")));
 
-        services.AddDbContext<PlatformDbContext>(options =>
-            options.UseNpgsql(
-                configuration.GetConnectionString(
-                    "DefaultConnection")));
-
-        services.AddScoped<IApplicationDbContext>(provider =>
-            provider.GetRequiredService<PlatformDbContext>());
-
-        // ---------------------------------------------------------
-        // Permission Checker
-        // ---------------------------------------------------------
+        services.AddScoped<IApplicationDbContext>(
+            provider =>
+                provider.GetRequiredService<
+                    PlatformDbContext>());
 
         services.AddScoped<
             IPermissionChecker,
             PermissionChecker>();
-
-        // ---------------------------------------------------------
-        // Live Authorization
-        // ---------------------------------------------------------
 
         services.AddScoped<
             ILiveAuthorizationService,
@@ -129,103 +105,51 @@ public static class ServiceCollectionExtensions
             ISrsPublishAuthorizationService,
             SrsPublishAuthorizationService>();
 
-        // ---------------------------------------------------------
-        // Document Security
-        // ---------------------------------------------------------
-
         services.AddScoped<
             IDocumentSecurityService,
             DocumentSecurityService>();
-
-        // ---------------------------------------------------------
-        // Realtime
-        // ---------------------------------------------------------
 
         services.AddScoped<
             IRealtimePublisher,
             SignalRRealtimePublisher>();
 
-        // ---------------------------------------------------------
-        // Current User
-        // ---------------------------------------------------------
-
         services.AddScoped<
             ICurrentUser,
             CurrentUser>();
-
-        // ---------------------------------------------------------
-        // Current Developer
-        // ---------------------------------------------------------
 
         services.AddScoped<
             ICurrentDeveloper,
             CurrentDeveloper>();
 
-        // ---------------------------------------------------------
-        // Current Application
-        // ---------------------------------------------------------
-
         services.AddScoped<
             ICurrentApplication,
             CurrentApplication>();
 
-        // ---------------------------------------------------------
-        // HTTP Context
-        // ---------------------------------------------------------
-
         services.AddHttpContextAccessor();
-
-        // ---------------------------------------------------------
-        // Clock
-        // ---------------------------------------------------------
 
         services.AddScoped<
             IClock,
             Clock>();
 
-        // ---------------------------------------------------------
-        // Password Hashing
-        // ---------------------------------------------------------
-
         services.AddScoped<
             IPasswordHasher,
             PasswordHasher>();
-
-        // ---------------------------------------------------------
-        // JWT Token Generator
-        // ---------------------------------------------------------
 
         services.AddScoped<
             IJwtTokenGenerator,
             JwtTokenGenerator>();
 
-        // ---------------------------------------------------------
-        // Application Initializer
-        // ---------------------------------------------------------
-
         services.AddScoped<
             IApplicationInitializer,
             ApplicationInitializer>();
-
-        // ---------------------------------------------------------
-        // Query Engine
-        // ---------------------------------------------------------
 
         services.AddScoped<
             IQueryBuilder,
             PostgreSqlQueryBuilder>();
 
-        // ---------------------------------------------------------
-        // Storage
-        // ---------------------------------------------------------
-
         services.AddScoped<
             IStorageProvider,
             LocalStorageProvider>();
-
-        // ---------------------------------------------------------
-        // CORS
-        // ---------------------------------------------------------
 
         services.AddCors(options =>
         {

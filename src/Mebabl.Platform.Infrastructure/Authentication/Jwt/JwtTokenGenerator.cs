@@ -2,8 +2,10 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+
 using Mebabl.Platform.Application.Services.Jwt;
 
 namespace Mebabl.Platform.Infrastructure.Authentication.Jwt;
@@ -12,16 +14,15 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
     private readonly JwtOptions _options;
 
-    public JwtTokenGenerator(IOptions<JwtOptions> options)
+    public JwtTokenGenerator(
+        IOptions<JwtOptions> options)
     {
         _options = options.Value;
     }
 
-    // =========================================================
-    // Developer Token
-    // =========================================================
-
-    public string GenerateDeveloperToken(Guid developerId)
+    // مولّد مركزي لجميع رموز الهوية والصلاحيات في المنصة.
+    public string GenerateDeveloperToken(
+        Guid developerId)
     {
         var claims = new[]
         {
@@ -34,27 +35,11 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
                 "developer")
         };
 
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_options.Secret));
-
-        var credentials = new SigningCredentials(
-            key,
-            SecurityAlgorithms.HmacSha256);
-
-        var token = new JwtSecurityToken(
-            issuer: _options.Issuer,
-            audience: _options.Audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_options.ExpiryMinutes),
-            signingCredentials: credentials);
-
-        return new JwtSecurityTokenHandler()
-            .WriteToken(token);
+        return GenerateToken(
+            claims,
+            TimeSpan.FromMinutes(
+                _options.ExpiryMinutes));
     }
-
-    // =========================================================
-    // Application Token
-    // =========================================================
 
     public string GenerateApplicationToken(
         Guid applicationId,
@@ -75,27 +60,10 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
                 "application")
         };
 
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_options.Secret));
-
-        var credentials = new SigningCredentials(
-            key,
-            SecurityAlgorithms.HmacSha256);
-
-        var token = new JwtSecurityToken(
-            issuer: _options.Issuer,
-            audience: _options.Audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(1),
-            signingCredentials: credentials);
-
-        return new JwtSecurityTokenHandler()
-            .WriteToken(token);
+        return GenerateToken(
+            claims,
+            TimeSpan.FromHours(1));
     }
-
-    // =========================================================
-    // User Access Token
-    // =========================================================
 
     public string GenerateAccessToken(
         Guid accountId,
@@ -129,43 +97,61 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 
         foreach (var role in roles)
         {
-            claims.Add(new Claim(
-                ClaimTypes.Role,
-                role));
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                claims.Add(
+                    new Claim(
+                        ClaimTypes.Role,
+                        role));
+            }
         }
 
         foreach (var permission in permissions)
         {
-            claims.Add(new Claim(
-                "permission",
-                permission));
+            if (!string.IsNullOrWhiteSpace(permission))
+            {
+                claims.Add(
+                    new Claim(
+                        "permission",
+                        permission));
+            }
         }
 
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_options.Secret));
-
-        var credentials = new SigningCredentials(
-            key,
-            SecurityAlgorithms.HmacSha256);
-
-        var token = new JwtSecurityToken(
-            issuer: _options.Issuer,
-            audience: _options.Audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_options.ExpiryMinutes),
-            signingCredentials: credentials);
-
-        return new JwtSecurityTokenHandler()
-            .WriteToken(token);
+        return GenerateToken(
+            claims,
+            TimeSpan.FromMinutes(
+                _options.ExpiryMinutes));
     }
-
-    // =========================================================
-    // Refresh Token
-    // =========================================================
 
     public string GenerateRefreshToken()
     {
         return Convert.ToBase64String(
             RandomNumberGenerator.GetBytes(64));
+    }
+
+    private string GenerateToken(
+        IEnumerable<Claim> claims,
+        TimeSpan lifetime)
+    {
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(
+                _options.Secret));
+
+        var credentials = new SigningCredentials(
+            key,
+            SecurityAlgorithms.HmacSha256);
+
+        var now = DateTime.UtcNow;
+
+        var token = new JwtSecurityToken(
+            issuer: _options.Issuer,
+            audience: _options.Audience,
+            claims: claims,
+            notBefore: now,
+            expires: now.Add(lifetime),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler()
+            .WriteToken(token);
     }
 }

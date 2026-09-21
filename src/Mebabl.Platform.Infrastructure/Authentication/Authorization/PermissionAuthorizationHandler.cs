@@ -9,14 +9,23 @@ public sealed class PermissionAuthorizationHandler
         AuthorizationHandlerContext context,
         PermissionRequirement requirement)
     {
-        var permissions = context.User
-            .FindAll("permission")
-            .Select(x => x.Value);
+        // يتحقق من وجود الصلاحية داخل هوية المستخدم الموثقة.
+        if (context.User.Identity?.IsAuthenticated != true)
+            return Task.CompletedTask;
 
-        if (permissions.Contains(requirement.Permission))
-        {
+        if (!context.User.HasClaim("type", "user"))
+            return Task.CompletedTask;
+
+        var hasPermission = context.User
+            .FindAll("permission")
+            .Any(claim =>
+                string.Equals(
+                    claim.Value,
+                    requirement.Permission,
+                    StringComparison.Ordinal));
+
+        if (hasPermission)
             context.Succeed(requirement);
-        }
 
         return Task.CompletedTask;
     }

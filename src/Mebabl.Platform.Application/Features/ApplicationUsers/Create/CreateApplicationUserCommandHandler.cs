@@ -1,9 +1,9 @@
-
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
-using Mebabl.Platform.Application.Services.Password;
 using Mebabl.Platform.Application.Features.Applications.Users.CreateApplicationUser;
+using Mebabl.Platform.Application.Services.Password;
 using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Application.Features.ApplicationUsers.Create;
@@ -29,6 +29,7 @@ public sealed class CreateApplicationUserCommandHandler
         CreateApplicationUserCommand request,
         CancellationToken cancellationToken)
     {
+        // ينشئ حساب المستخدم وملفه الشخصي ضمن التطبيق المملوك للمطور.
         if (!_currentDeveloper.IsAuthenticated)
         {
             throw new UnauthorizedAccessException(
@@ -51,6 +52,7 @@ public sealed class CreateApplicationUserCommandHandler
 
         var email = request.Email.Trim();
         var username = request.Username.Trim();
+        var displayName = request.DisplayName.Trim();
 
         var normalizedEmail = email.ToUpperInvariant();
         var normalizedUsername = username.ToUpperInvariant();
@@ -65,7 +67,7 @@ public sealed class CreateApplicationUserCommandHandler
 
         if (emailExists)
         {
-            throw new Exception(
+            throw new InvalidOperationException(
                 "User with this email already exists in this application.");
         }
 
@@ -79,13 +81,20 @@ public sealed class CreateApplicationUserCommandHandler
 
         if (usernameExists)
         {
-            throw new Exception(
+            throw new InvalidOperationException(
                 "User with this username already exists in this application.");
         }
 
         var account = new Account();
 
-        _dbContext.Accounts.Add(account);
+        var profile = new Profile
+        {
+            Account = account,
+            Username = username,
+            DisplayName = displayName
+        };
+
+        account.Profile = profile;
 
         var applicationUser = new ApplicationUser
         {
@@ -109,18 +118,19 @@ public sealed class CreateApplicationUserCommandHandler
             IsActive = true
         };
 
+        _dbContext.Accounts.Add(account);
         _dbContext.ApplicationUsers.Add(applicationUser);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new CreateApplicationUserResponse(
-    applicationUser.Id,
-    applicationUser.AccountId,
-    applicationUser.ApplicationId,
-    applicationUser.Email,
-    applicationUser.Username,
-    request.DisplayName,
-    applicationUser.IsActive,
-    applicationUser.CreatedAt);
+            applicationUser.Id,
+            applicationUser.AccountId,
+            applicationUser.ApplicationId,
+            applicationUser.Email,
+            applicationUser.Username,
+            profile.DisplayName,
+            applicationUser.IsActive,
+            applicationUser.CreatedAt);
     }
 }

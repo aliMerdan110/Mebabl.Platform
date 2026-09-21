@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Mebabl.Platform.API.Configuration;
+using Mebabl.Platform.API.Configurations;
 using Microsoft.OpenApi;
 
 namespace Mebabl.Platform.API.DependencyInjection;

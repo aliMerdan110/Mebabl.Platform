@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Features.ApplicationAuthentication.DTOs;
 using Mebabl.Platform.Application.Services.Jwt;
@@ -28,13 +29,16 @@ public sealed class ApplicationLoginCommandHandler
         ApplicationLoginCommand request,
         CancellationToken cancellationToken)
     {
+        // يتحقق من بيانات اعتماد التطبيق قبل إصدار JWT.
         var credential = await _dbContext.ApplicationCredentials
             .Include(x => x.Application)
             .FirstOrDefaultAsync(
                 x =>
                     x.ApiKey == request.ApiKey &&
                     x.IsActive &&
-                    x.Application.IsActive,
+                    !x.IsDeleted &&
+                    x.Application.IsActive &&
+                    !x.Application.IsDeleted,
                 cancellationToken);
 
         if (credential is null)

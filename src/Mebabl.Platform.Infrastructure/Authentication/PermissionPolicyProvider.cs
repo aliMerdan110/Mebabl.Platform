@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+
 using Mebabl.Platform.Infrastructure.Authentication.Authorization;
 
 namespace Mebabl.Platform.Infrastructure.Authentication;
@@ -13,6 +15,7 @@ public sealed class PermissionPolicyProvider
     {
     }
 
+    // ينشئ سياسة صلاحية ديناميكية للمستخدم.
     public override async Task<AuthorizationPolicy?> GetPolicyAsync(
         string policyName)
     {
@@ -21,7 +24,13 @@ public sealed class PermissionPolicyProvider
         if (policy is not null)
             return policy;
 
-        return new AuthorizationPolicyBuilder()
+        return new AuthorizationPolicyBuilder(
+                JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .RequireClaim("type", "user")
+            .RequireClaim("userId")
+            .RequireClaim("accountId")
+            .RequireClaim("applicationId")
             .AddRequirements(
                 new PermissionRequirement(policyName))
             .Build();

@@ -1,29 +1,23 @@
 using MediatR;
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 using Mebabl.Platform.Application.Features.ApplicationAuthentication.Login;
 using Mebabl.Platform.Application.Features.ApplicationAuthentication.Providers;
-using Mebabl.Platform.Application.Features.ApplicationAuthentication.Settings;
 using Mebabl.Platform.Application.Features.Applications.Users.CreateApplicationUser;
 
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
 [Route("api")]
-public class ApplicationAuthController : BaseApiController
+public sealed class ApplicationAuthController : BaseApiController
 {
-
-    
-    // ------------------------------------------------------------
-    // Application User Authentication
-    // ------------------------------------------------------------
-
-    // POST /api/application-auth/token
-    //
-    // Used by an application user to sign in.
-    //
+    // يفصل بين مصادقة التطبيق وإدارة إعدادات ومستخدمي التطبيق.
+    [AllowAnonymous]
     [HttpPost("application-auth/token")]
     public async Task<IActionResult> Token(
-        ApplicationLoginCommand command,
+        [FromBody] ApplicationLoginCommand command,
         CancellationToken cancellationToken)
     {
         var result = await Sender.Send(
@@ -33,17 +27,7 @@ public class ApplicationAuthController : BaseApiController
         return Ok(result);
     }
 
-
-    // ------------------------------------------------------------
-    // Authentication Providers
-    // Developer Console
-    // ------------------------------------------------------------
-
-    // GET /api/applications/{applicationId}/authentication/providers
-    //
-    // Returns authentication providers belonging
-    // to the selected application.
-    //
+    [Authorize(Policy = "Developer")]
     [HttpGet(
         "applications/{applicationId:guid}/authentication/providers")]
     public async Task<IActionResult> GetProviders(
@@ -57,12 +41,7 @@ public class ApplicationAuthController : BaseApiController
         return Ok(result);
     }
 
-
-    // PUT /api/applications/{applicationId}/authentication/providers/{provider}
-    //
-    // Enable or disable an authentication provider
-    // for the selected application.
-    //
+    [Authorize(Policy = "Developer")]
     [HttpPut(
         "applications/{applicationId:guid}/authentication/providers/{provider}")]
     public async Task<IActionResult> ToggleProvider(
@@ -81,46 +60,31 @@ public class ApplicationAuthController : BaseApiController
         return NoContent();
     }
 
+    [Authorize(Policy = "Developer")]
+    [HttpPost(
+        "applications/{applicationId:guid}/users")]
+    public async Task<IActionResult> CreateUser(
+        Guid applicationId,
+        [FromBody] CreateApplicationUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            new CreateApplicationUserCommand(
+                applicationId,
+                request.Email,
+                request.Password,
+                request.Username,
+                request.DisplayName),
+            cancellationToken);
 
-    // ------------------------------------------------------------
-// Application Users - Developer Console
-// ------------------------------------------------------------
-
-// POST /api/applications/{applicationId}/users
-//
-// Creates a user that belongs ONLY to this application.
-//
-[HttpPost(
-    "applications/{applicationId:guid}/users")]
-public async Task<IActionResult> CreateUser(
-    Guid applicationId,
-    [FromBody] CreateApplicationUserRequest request,
-    CancellationToken cancellationToken)
-{
-    var result = await Sender.Send(
-        new CreateApplicationUserCommand(
-            applicationId,
-            request.Email,
-            request.Password,
-            request.Username,
-            request.DisplayName),
-        cancellationToken);
-
-    return StatusCode(
-        StatusCodes.Status201Created,
-        result);
+        return StatusCode(
+            StatusCodes.Status201Created,
+            result);
+    }
 }
-
-}
-
-
-// ------------------------------------------------------------
-// Request
-// ------------------------------------------------------------
 
 public sealed record ToggleAuthProviderRequest(
     bool IsEnabled);
-
 
 public sealed record CreateApplicationUserRequest(
     string Email,
