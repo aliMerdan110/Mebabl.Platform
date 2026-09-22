@@ -15,47 +15,36 @@ using Mebabl.Platform.Domain.Live;
 using Mebabl.Platform.Domain.Entities.Social;
 using Mebabl.Platform.Domain.Entities.Commerce;
 
-
-
-
-
-
 namespace Mebabl.Platform.Infrastructure.Data;
 
 public class PlatformDbContext : DbContext, IApplicationDbContext
 {
     private readonly IClock _clock;
-private readonly ICurrentUser _currentUser;
+    private readonly ICurrentUser _currentUser;
 
-public PlatformDbContext(
-    DbContextOptions<PlatformDbContext> options,
-    IClock clock,
-    ICurrentUser currentUser)
-    : base(options)
-{
-    _clock = clock;
-    _currentUser = currentUser;
-}
+    public PlatformDbContext(
+        DbContextOptions<PlatformDbContext> options,
+        IClock clock,
+        ICurrentUser currentUser)
+        : base(options)
+    {
+        _clock = clock;
+        _currentUser = currentUser;
+    }
 
     public DbSet<DeveloperPasswordResetToken> DeveloperPasswordResetTokens { get; set; }
 
-    // EmailVerificationTokens
-    // 
-   public DbSet<ApplicationUserEmailVerificationToken>
-    ApplicationUserEmailVerificationTokens
-    => Set<ApplicationUserEmailVerificationToken>();
+    public DbSet<ApplicationUserEmailVerificationToken>
+        ApplicationUserEmailVerificationTokens
+        => Set<ApplicationUserEmailVerificationToken>();
     
-    // أضف هذا السطر هنا ليكون متاحاً لـ SDK Users
     public DbSet<ApplicationUserPasswordResetToken> ApplicationUserPasswordResetTokens => Set<ApplicationUserPasswordResetToken>();
 
-// 
-public DbSet<LiveStream> LiveStreams => Set<LiveStream>();
+    public DbSet<LiveStream> LiveStreams => Set<LiveStream>();
 
-public DbSet<StreamCredential> StreamCredentials => Set<StreamCredential>();
+    public DbSet<StreamCredential> StreamCredentials => Set<StreamCredential>();
 
-public DbSet<LiveStreamSession> LiveStreamSessions => Set<LiveStreamSession>();
-
-
+    public DbSet<LiveStreamSession> LiveStreamSessions => Set<LiveStreamSession>();
 
     public DbSet<Developer> Developers => Set<Developer>();
 
@@ -67,36 +56,32 @@ public DbSet<LiveStreamSession> LiveStreamSessions => Set<LiveStreamSession>();
 
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 
-
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public DbSet<DeveloperRefreshToken> DeveloperRefreshTokens
-    => Set<DeveloperRefreshToken>();
+        => Set<DeveloperRefreshToken>();
 
     public DbSet<Mebabl.Platform.Domain.Entities.Notifications.Notification>
-    Notifications
-    => Set<Mebabl.Platform.Domain.Entities.Notifications.Notification>();
-    // Core
-//  خاصية اضافه معلومات التطبيق عند الانشاء 
-    public DbSet<ApplicationPlatform> ApplicationPlatforms
-    => Set<ApplicationPlatform>();
+        Notifications
+        => Set<Mebabl.Platform.Domain.Entities.Notifications.Notification>();
 
+    public DbSet<ApplicationPlatform> ApplicationPlatforms
+        => Set<ApplicationPlatform>();
 
     public DbSet<ApplicationCredential> ApplicationCredentials
-    => Set<ApplicationCredential>();
+        => Set<ApplicationCredential>();
 
-   public DbSet<ApplicationAuthProvider> ApplicationAuthProviders
-    => Set<ApplicationAuthProvider>();
+    public DbSet<ApplicationAuthProvider> ApplicationAuthProviders
+        => Set<ApplicationAuthProvider>();
 
     public DbSet<PlatformApplication> Applications => Set<PlatformApplication>();
 
     public DbSet<ApplicationAuthenticationSettings>
-    ApplicationAuthenticationSettings
-    => Set<ApplicationAuthenticationSettings>();
+        ApplicationAuthenticationSettings
+        => Set<ApplicationAuthenticationSettings>();
 
     public DbSet<ApplicationMobileAppLink> ApplicationMobileAppLinks
-    => Set<ApplicationMobileAppLink>();
-
+        => Set<ApplicationMobileAppLink>();
     
     public DbSet<Account> Accounts => Set<Account>();
 
@@ -116,99 +101,82 @@ public DbSet<LiveStreamSession> LiveStreamSessions => Set<LiveStreamSession>();
 
     public DbSet<Channel> Channels { get; set; } = default!;
 
-public DbSet<RealtimeEvent> RealtimeEvents { get; set; } = default!;
-    
+    public DbSet<RealtimeEvent> RealtimeEvents { get; set; } = default!;
 
     public DbSet<Conversation> Conversations => Set<Conversation>();
 
-public DbSet<ConversationParticipant> ConversationParticipants
-    => Set<ConversationParticipant>();
+    public DbSet<ConversationParticipant> ConversationParticipants
+        => Set<ConversationParticipant>();
 
-public DbSet<Message> Messages => Set<Message>();
+    public DbSet<Message> Messages => Set<Message>();
 
-public DbSet<MessageRead> MessageReads
-    => Set<MessageRead>();
+    public DbSet<MessageRead> MessageReads
+        => Set<MessageRead>();
 
+    public DbSet<MessageReaction> MessageReactions
+        => Set<MessageReaction>();
 
-public DbSet<MessageReaction> MessageReactions
-    => Set<MessageReaction>();
+    public DbSet<MessageAttachment> MessageAttachments
+        => Set<MessageAttachment>();
 
+    public DbSet<Mebabl.Platform.Domain.Entities.Content.Post> Posts
+        => Set<Mebabl.Platform.Domain.Entities.Content.Post>();
 
-public DbSet<MessageAttachment> MessageAttachments
-    => Set<MessageAttachment>();
+    public DbSet<Mebabl.Platform.Domain.Entities.Content.PostAttachment> PostAttachments
+        => Set<Mebabl.Platform.Domain.Entities.Content.PostAttachment>();
 
+    public DbSet<SocialReaction> SocialReactions { get; set; }
 
+    public DbSet<SocialComment> SocialComments { get; set; }
 
-// 
-public DbSet<Mebabl.Platform.Domain.Entities.Content.Post> Posts
-    => Set<Mebabl.Platform.Domain.Entities.Content.Post>();
+    public DbSet<SocialShare> SocialShares { get; set; }
 
-public DbSet<Mebabl.Platform.Domain.Entities.Content.PostAttachment> PostAttachments
-    => Set<Mebabl.Platform.Domain.Entities.Content.PostAttachment>();
+    public DbSet<SocialRepost> SocialReposts { get; set; }
 
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+    public DbSet<Cart> Carts => Set<Cart>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
-    // Social 
-public DbSet<SocialReaction> SocialReactions { get; set; }
-
-public DbSet<SocialComment> SocialComments { get; set; }
-
-public DbSet<SocialShare> SocialShares { get; set; }
-
-public DbSet<SocialRepost> SocialReposts { get; set; }
-
-
-// Commerce
-public DbSet<Product> Products => Set<Product>();
-public DbSet<ProductImage> ProductImages => Set<ProductImage>();
-public DbSet<Cart> Carts => Set<Cart>();
-public DbSet<CartItem> CartItems => Set<CartItem>();
-public DbSet<Order> Orders => Set<Order>();
-public DbSet<OrderItem> OrderItems => Set<OrderItem>();
-
-    // 
-
-
-   public override async Task<int> SaveChangesAsync(
-    CancellationToken cancellationToken = default)
-{
-    UpdateAuditableEntities();
-
-    return await base.SaveChangesAsync(cancellationToken);
-}
-
-private void UpdateAuditableEntities()
-{
-    var entries = ChangeTracker.Entries<AuditableEntity>();
-
-    foreach (var entry in entries)
+    public override async Task<int> SaveChangesAsync(
+        CancellationToken cancellationToken = default)
     {
-        switch (entry.State)
-        {
-            case EntityState.Added:
-                entry.Entity.CreatedAt = _clock.UtcNow;
-                entry.Entity.CreatedBy = _currentUser.UserId;
-                break;
+        UpdateAuditableEntities();
 
-            case EntityState.Modified:
-                entry.Entity.UpdatedAt = _clock.UtcNow;
-                entry.Entity.UpdatedBy = _currentUser.UserId;
-                break;
+        return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void UpdateAuditableEntities()
+    {
+        var entries = ChangeTracker.Entries<AuditableEntity>();
+        
+        // التحقق الآمن مما إذا كان المستخدم مسجلاً لتجنب الاستثناءات في نقاط النهاية العامة (مثل Register)
+        Guid? userId = _currentUser.IsAuthenticated ? _currentUser.UserId : null;
+
+        foreach (var entry in entries)
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    entry.Entity.CreatedAt = _clock.UtcNow;
+                    entry.Entity.CreatedBy = userId;
+                    break;
+
+                case EntityState.Modified:
+                    entry.Entity.UpdatedAt = _clock.UtcNow;
+                    entry.Entity.UpdatedBy = userId;
+                    break;
+            }
         }
     }
-}
 
-  
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
 
-
-    // Infrastructure/Persistence/PlatformDbContext.cs
-//
-// داخل OnModelCreating تأكد من تسجيل Configuration الخاصة بالجلسة.
-
-protected override void OnModelCreating(ModelBuilder modelBuilder)
-{
-    base.OnModelCreating(modelBuilder);
-
-    modelBuilder.ApplyConfigurationsFromAssembly(
-        typeof(PlatformDbContext).Assembly);
-}
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(PlatformDbContext).Assembly);
+    }
 }
