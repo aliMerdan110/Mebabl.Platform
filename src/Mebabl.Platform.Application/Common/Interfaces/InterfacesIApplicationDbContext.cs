@@ -19,8 +19,10 @@ public interface IApplicationDbContext
 
 {
 
+    DbSet<ProjectSdkConfiguration> ProjectSdkConfigurations { get; }
+
     DbSet<PlatformProject> Projects { get; }
-    
+
     DbSet<Developer> Developers { get; }
 
     DbSet<DeveloperPasswordResetToken> DeveloperPasswordResetTokens { get; }

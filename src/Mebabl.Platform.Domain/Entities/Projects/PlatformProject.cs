@@ -20,4 +20,8 @@ public sealed class PlatformProject : AuditableEntity
 
     public ICollection<PlatformApplication> Applications { get; set; }
         = new List<PlatformApplication>();
+
+    public ProjectSdkConfiguration? SdkConfiguration { get; set; }
+
+    
 }

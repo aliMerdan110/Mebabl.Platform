@@ -16,10 +16,15 @@ using Mebabl.Platform.Domain.Entities.Social;
 using Mebabl.Platform.Domain.Entities.Commerce;
 using Mebabl.Platform.Domain.Entities.Projects;
 
+
 namespace Mebabl.Platform.Infrastructure.Data;
 
 public class PlatformDbContext : DbContext, IApplicationDbContext
 {
+
+
+    public DbSet<ProjectSdkConfiguration> ProjectSdkConfigurations
+    => Set<ProjectSdkConfiguration>();
 
     public DbSet<PlatformProject> Projects
     => Set<PlatformProject>();
