@@ -11,11 +11,16 @@ using Mebabl.Platform.Domain.Live;
 using Mebabl.Platform.Domain.Entities.Content;
 using Mebabl.Platform.Domain.Entities.Social;
 using Mebabl.Platform.Domain.Entities.Commerce;
+using Mebabl.Platform.Domain.Entities.Projects;
 
 namespace Mebabl.Platform.Application.Common.Interfaces;
 
 public interface IApplicationDbContext
+
 {
+
+    DbSet<PlatformProject> Projects { get; }
+    
     DbSet<Developer> Developers { get; }
 
     DbSet<DeveloperPasswordResetToken> DeveloperPasswordResetTokens { get; }

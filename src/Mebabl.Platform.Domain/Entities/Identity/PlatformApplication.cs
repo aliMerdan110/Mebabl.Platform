@@ -1,13 +1,15 @@
+
 using Mebabl.Platform.Domain.Common.Entities;
 using Mebabl.Platform.Domain.Entities.Applications;
+using Mebabl.Platform.Domain.Entities.Projects;
 
 namespace Mebabl.Platform.Domain.Entities.Identity;
 
 public class PlatformApplication : AuditableEntity
 {
+    public Guid ProjectId { get; set; }
 
-    public ICollection<ApplicationAuthProvider> AuthProviders { get; set; }
-    = new List<ApplicationAuthProvider>();
+    public PlatformProject Project { get; set; } = default!;
 
     public Guid DeveloperId { get; set; }
 
@@ -23,8 +25,9 @@ public class PlatformApplication : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
+    public ICollection<ApplicationAuthProvider> AuthProviders { get; set; }
+        = new List<ApplicationAuthProvider>();
 
-// 
     public ICollection<ApplicationCredential> Credentials { get; set; }
         = new List<ApplicationCredential>();
 
@@ -37,7 +40,6 @@ public class PlatformApplication : AuditableEntity
     public ICollection<Permission> Permissions { get; set; }
         = new List<Permission>();
 
-        //  اضافه تطبيق جديد 
     public ICollection<ApplicationPlatform> Platforms { get; set; }
-    = new List<ApplicationPlatform>();
+        = new List<ApplicationPlatform>();
 }

@@ -14,13 +14,22 @@ using Mebabl.Platform.Domain.Entities.Applications;
 using Mebabl.Platform.Domain.Live;
 using Mebabl.Platform.Domain.Entities.Social;
 using Mebabl.Platform.Domain.Entities.Commerce;
+using Mebabl.Platform.Domain.Entities.Projects;
 
 namespace Mebabl.Platform.Infrastructure.Data;
 
 public class PlatformDbContext : DbContext, IApplicationDbContext
 {
+
+    public DbSet<PlatformProject> Projects
+    => Set<PlatformProject>();
+
+
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
+
+
+
 
     public PlatformDbContext(
         DbContextOptions<PlatformDbContext> options,
