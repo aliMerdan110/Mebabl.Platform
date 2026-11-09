@@ -9,6 +9,8 @@ public sealed class GetChannelEventsQueryHandler
         GetChannelEventsQuery,
         IReadOnlyList<GetChannelEventsResponse>>
 {
+    private const int MaxPageSize = 100;
+
     private readonly IApplicationDbContext _context;
     private readonly ICurrentApplication _currentApplication;
 
@@ -24,25 +26,56 @@ public sealed class GetChannelEventsQueryHandler
         GetChannelEventsQuery request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated application credentials are required.");
+        }
+
+        if (request.ChannelId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid channel ID is required.",
+                nameof(request.ChannelId));
+        }
+
+        if (request.Offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Offset),
+                "Offset cannot be negative.");
+        }
+
+        if (request.Limit < 1 || request.Limit > MaxPageSize)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Limit),
+                $"Limit must be between 1 and {MaxPageSize}.");
+        }
 
         var channelExists = await _context.Channels
             .AsNoTracking()
             .AnyAsync(
                 x =>
                     x.Id == request.ChannelId &&
-                    x.ApplicationId == _currentApplication.ApplicationId &&
+                    x.ApplicationId == applicationId &&
                     !x.IsDeleted,
                 cancellationToken);
 
         if (!channelExists)
-            throw new Exception("Channel not found.");
+        {
+            throw new KeyNotFoundException(
+                "Channel not found in this application.");
+        }
 
         return await _context.RealtimeEvents
             .AsNoTracking()
             .Where(x => x.ChannelId == request.ChannelId)
             .OrderByDescending(x => x.CreatedAt)
+            .ThenByDescending(x => x.Id)
             .Skip(request.Offset)
             .Take(request.Limit)
             .Select(x => new GetChannelEventsResponse(

@@ -5,5 +5,12 @@ public sealed record ApplicationItemResponse(
     string Name,
     string Code,
     string? Description,
+    bool IsActive,
+    Guid ProjectPlatformId,
+    string Platform,
+    string? Nickname,
+    string? PackageName,
+    string? BundleId,
     string? Domain,
-    bool IsActive);
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);

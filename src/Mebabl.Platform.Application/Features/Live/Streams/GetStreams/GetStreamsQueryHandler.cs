@@ -1,8 +1,7 @@
-
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
-using Mebabl.Platform.Domain.Live.Enums;
+using Mebabl.Platform.Application.Services.Live;
 
 namespace Mebabl.Platform.Application.Features.Live.Streams.GetStreams;
 
@@ -11,23 +10,44 @@ public sealed class GetStreamsQueryHandler
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentUser _currentUser;
+    private readonly ILiveAuthorizationService _authorization;
 
     public GetStreamsQueryHandler(
         IApplicationDbContext dbContext,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        ILiveAuthorizationService authorization)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
+        _authorization = authorization;
     }
 
     public async Task<GetStreamsResponse> Handle(
         GetStreamsQuery request,
         CancellationToken cancellationToken)
     {
-        if (!_currentUser.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        if (!_currentUser.IsAuthenticated ||
+            _currentUser.ApplicationId == Guid.Empty ||
+            _currentUser.UserId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The current user is not authenticated.");
+        }
 
         var applicationId = _currentUser.ApplicationId;
+        var userId = _currentUser.UserId;
+
+        var allowed = await _authorization.CanViewAsync(
+    applicationId,
+    userId,
+    Guid.Empty,
+    cancellationToken);
+
+        if (!allowed)
+        {
+            throw new UnauthorizedAccessException(
+                "The current user is not allowed to view live streams.");
+        }
 
         var streams = await _dbContext.LiveStreams
             .AsNoTracking()
@@ -38,7 +58,7 @@ public sealed class GetStreamsQueryHandler
                 x.Name,
                 x.Title,
                 x.Description,
-                $"https://live.mebabl.com/hls/{x.Id}.m3u8",
+                $"https://live.mebabl.com/hls/{Uri.EscapeDataString(x.Name)}.m3u8",
                 x.Status.ToString()))
             .ToListAsync(cancellationToken);
 

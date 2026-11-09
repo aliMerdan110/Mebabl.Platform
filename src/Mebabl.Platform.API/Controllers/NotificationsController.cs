@@ -9,7 +9,7 @@ using Mebabl.Platform.Application.Features.Notifications.DeleteNotification;
 
 namespace Mebabl.Platform.API.Controllers;
 
-[Authorize]
+[Authorize(Policy = "Application")]
 [Route("api/notifications")]
 public sealed class NotificationsController : BaseApiController
 {

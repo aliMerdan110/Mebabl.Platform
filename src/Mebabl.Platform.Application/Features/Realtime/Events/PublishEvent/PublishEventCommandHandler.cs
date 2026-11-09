@@ -23,25 +23,55 @@ public sealed class PublishEventCommandHandler
         PublishEventCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated application credentials are required.");
+        }
+
+        if (request.ChannelId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid channel ID is required.",
+                nameof(request.ChannelId));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException(
+                "Event name is required.",
+                nameof(request.Name));
+        }
+
+        if (request.Payload is null)
+        {
+            throw new ArgumentException(
+                "Event payload is required.",
+                nameof(request.Payload));
+        }
 
         var channel = await _context.Channels
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.ChannelId &&
-                    x.ApplicationId == _currentApplication.ApplicationId &&
+                    x.ApplicationId == applicationId &&
                     x.IsActive &&
                     !x.IsDeleted,
                 cancellationToken);
 
         if (channel is null)
-            throw new Exception("Channel not found.");
+        {
+            throw new KeyNotFoundException(
+                "Active channel not found in this application.");
+        }
 
         var realtimeEvent = new RealtimeEvent
         {
             ChannelId = channel.Id,
-            Name = request.Name,
+            Name = request.Name.Trim(),
             Payload = request.Payload
         };
 

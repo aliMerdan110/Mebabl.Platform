@@ -30,16 +30,15 @@ public sealed class GetApplicationUsersQueryHandler
                 "Developer authentication is required.");
         }
 
-        var applicationExists =
-            await _dbContext.Applications
-                .AsNoTracking()
-                .AnyAsync(
-                    application =>
-                        application.Id == request.ApplicationId &&
-                        application.DeveloperId ==
-                            _currentDeveloper.DeveloperId &&
-                        !application.IsDeleted,
-                    cancellationToken);
+        var applicationExists = await _dbContext.Applications
+            .AsNoTracking()
+            .AnyAsync(
+                application =>
+                    application.Id == request.ApplicationId &&
+                    application.Project.DeveloperId ==
+                        _currentDeveloper.DeveloperId &&
+                    !application.IsDeleted,
+                cancellationToken);
 
         if (!applicationExists)
         {
@@ -47,29 +46,21 @@ public sealed class GetApplicationUsersQueryHandler
                 "Application was not found.");
         }
 
-        var users =
-            await _dbContext.ApplicationUsers
-                .AsNoTracking()
-                .Where(
-                    applicationUser =>
-                        applicationUser.ApplicationId ==
-                            request.ApplicationId &&
-                        !applicationUser.IsDeleted)
-                .OrderByDescending(
-                    applicationUser =>
-                        applicationUser.CreatedAt)
-                .Select(
-                    applicationUser =>
-                        new ApplicationUserDto(
-                            applicationUser.Id,
-                            applicationUser.Email,
-                            applicationUser.Username,
-                            "password",
-                            applicationUser.CreatedAt,
-                            applicationUser.LastLoginAt,
-                            applicationUser.IsActive))
-                .ToListAsync(cancellationToken);
-
-        return users;
+        return await _dbContext.ApplicationUsers
+            .AsNoTracking()
+            .Where(
+                applicationUser =>
+                    applicationUser.ApplicationId == request.ApplicationId &&
+                    !applicationUser.IsDeleted)
+            .OrderByDescending(applicationUser => applicationUser.CreatedAt)
+            .Select(applicationUser => new ApplicationUserDto(
+                applicationUser.Id,
+                applicationUser.Email,
+                applicationUser.Username,
+                "password",
+                applicationUser.CreatedAt,
+                applicationUser.LastLoginAt,
+                applicationUser.IsActive))
+            .ToListAsync(cancellationToken);
     }
 }

@@ -1,3 +1,4 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
@@ -28,12 +29,11 @@ public sealed class VerifyEmailCommandHandler
 
         var verificationToken =
             await _dbContext.ApplicationUserEmailVerificationTokens
-                .Include(x => x.User)
+                .Include(x => x.ApplicationUser)
                 .FirstOrDefaultAsync(
-                    x =>
-                        x.TokenHash == tokenHash &&
-                        x.UsedAt == null &&
-                        x.ExpiresAt > now,
+                    x => x.TokenHash == tokenHash
+                         && x.UsedAt == null
+                         && x.ExpiresAt > now,
                     cancellationToken);
 
         if (verificationToken is null)
@@ -42,7 +42,7 @@ public sealed class VerifyEmailCommandHandler
                 "The email verification token is invalid or has expired.");
         }
 
-        var user = verificationToken.User;
+        var user = verificationToken.ApplicationUser;
 
         if (user.IsDeleted || !user.IsActive)
         {
@@ -52,7 +52,6 @@ public sealed class VerifyEmailCommandHandler
 
         user.EmailConfirmed = true;
         user.UpdatedAt = now;
-
         verificationToken.UsedAt = now;
 
         await _dbContext.SaveChangesAsync(cancellationToken);

@@ -14,16 +14,31 @@ public sealed class ApplicationUserEmailVerificationTokenConfiguration
 
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.ApplicationUserId)
+            .IsRequired();
+
         builder.Property(x => x.TokenHash)
             .IsRequired()
-            .HasMaxLength(128);
+            .HasMaxLength(256);
+
+        builder.Property(x => x.ExpiresAt)
+            .IsRequired();
+
+        builder.Property(x => x.UsedAt);
+
+        builder.HasOne(x => x.ApplicationUser)
+            .WithMany(x => x.EmailVerificationTokens)
+            .HasForeignKey(x => x.ApplicationUserId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(x => x.TokenHash)
             .IsUnique();
 
-        builder.HasOne(x => x.User)
-            .WithMany(x => x.EmailVerificationTokens)
-            .HasForeignKey(x => x.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(x => new
+        {
+            x.ApplicationUserId,
+            x.ExpiresAt
+        });
     }
 }

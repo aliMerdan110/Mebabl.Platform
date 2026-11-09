@@ -7,20 +7,22 @@ namespace Mebabl.Platform.Infrastructure.Data.Configurations.Core;
 public sealed class ProjectSdkConfigurationConfiguration
     : IEntityTypeConfiguration<ProjectSdkConfiguration>
 {
-    public void Configure(
-        EntityTypeBuilder<ProjectSdkConfiguration> builder)
+    public void Configure(EntityTypeBuilder<ProjectSdkConfiguration> builder)
     {
         builder.ToTable("ProjectSdkConfigurations");
 
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.ProjectId)
+            .IsRequired();
+
         builder.Property(x => x.ProjectNumber)
             .IsRequired()
-            .HasMaxLength(32);
+            .HasMaxLength(10);
 
         builder.Property(x => x.PublicKey)
             .IsRequired()
-            .HasMaxLength(128);
+            .HasMaxLength(64);
 
         builder.Property(x => x.ConfigurationVersion)
             .IsRequired()
@@ -35,10 +37,13 @@ public sealed class ProjectSdkConfigurationConfiguration
         builder.HasIndex(x => x.ProjectNumber)
             .IsUnique();
 
+        builder.HasIndex(x => x.PublicKey)
+            .IsUnique();
+
         builder.HasOne(x => x.Project)
             .WithOne(x => x.SdkConfiguration)
-            .HasForeignKey<ProjectSdkConfiguration>(
-                x => x.ProjectId)
+            .HasForeignKey<ProjectSdkConfiguration>(x => x.ProjectId)
+            .IsRequired()
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -1,3 +1,4 @@
+
 using FluentValidation;
 
 namespace Mebabl.Platform.Application.Features.Applications.UpdateApplication;
@@ -11,7 +12,7 @@ public sealed class UpdateApplicationValidator
             .NotEmpty()
             .MaximumLength(200);
 
-        RuleFor(x => x.Domain)
-            .MaximumLength(500);
+        RuleFor(x => x.Description)
+            .MaximumLength(2000);
     }
 }

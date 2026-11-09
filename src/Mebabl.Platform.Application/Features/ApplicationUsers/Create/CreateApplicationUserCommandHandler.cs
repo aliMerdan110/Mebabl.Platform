@@ -1,6 +1,5 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Features.Applications.Users.CreateApplicationUser;
 using Mebabl.Platform.Application.Services.Password;
@@ -29,7 +28,6 @@ public sealed class CreateApplicationUserCommandHandler
         CreateApplicationUserCommand request,
         CancellationToken cancellationToken)
     {
-        // ينشئ حساب المستخدم وملفه الشخصي ضمن التطبيق المملوك للمطور.
         if (!_currentDeveloper.IsAuthenticated)
         {
             throw new UnauthorizedAccessException(
@@ -40,7 +38,7 @@ public sealed class CreateApplicationUserCommandHandler
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.ApplicationId &&
-                    x.DeveloperId == _currentDeveloper.DeveloperId &&
+                    x.Project.DeveloperId == _currentDeveloper.DeveloperId &&
                     !x.IsDeleted,
                 cancellationToken);
 
@@ -60,7 +58,7 @@ public sealed class CreateApplicationUserCommandHandler
         var emailExists = await _dbContext.ApplicationUsers
             .AnyAsync(
                 x =>
-                    x.ApplicationId == request.ApplicationId &&
+                    x.ApplicationId == application.Id &&
                     x.NormalizedEmail == normalizedEmail &&
                     !x.IsDeleted,
                 cancellationToken);
@@ -74,7 +72,7 @@ public sealed class CreateApplicationUserCommandHandler
         var usernameExists = await _dbContext.ApplicationUsers
             .AnyAsync(
                 x =>
-                    x.ApplicationId == request.ApplicationId &&
+                    x.ApplicationId == application.Id &&
                     x.NormalizedUsername == normalizedUsername &&
                     !x.IsDeleted,
                 cancellationToken);
@@ -99,17 +97,13 @@ public sealed class CreateApplicationUserCommandHandler
         var applicationUser = new ApplicationUser
         {
             Account = account,
-            ApplicationId = request.ApplicationId,
-
+            ApplicationId = application.Id,
             Email = email,
             NormalizedEmail = normalizedEmail,
-
             Username = username,
             NormalizedUsername = normalizedUsername,
-
             PasswordHash = _passwordHasher.Hash(request.Password),
             SecurityStamp = Guid.NewGuid().ToString(),
-
             EmailConfirmed = false,
             TwoFactorEnabled = false,
             LockoutEnabled = true,

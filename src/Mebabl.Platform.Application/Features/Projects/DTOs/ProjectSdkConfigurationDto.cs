@@ -1,12 +1,15 @@
-
 namespace Mebabl.Platform.Application.Features.Projects.DTOs;
 
 public sealed class ProjectSdkConfigurationDto
 {
-    public ProjectInfoDto ProjectInfo { get; init; } = default!;
+    public ProjectInfoDto ProjectInfo { get; init; } = new();
 
     public IReadOnlyList<ProjectClientDto> Client { get; init; }
         = Array.Empty<ProjectClientDto>();
+
+    public string ProjectNumber { get; init; } = string.Empty;
+
+    public string PublicKey { get; init; } = string.Empty;
 
     public string ConfigurationVersion { get; init; } = "1";
 }
@@ -24,7 +27,11 @@ public sealed class ProjectInfoDto
 
 public sealed class ProjectClientDto
 {
-    public ProjectClientInfoDto ClientInfo { get; init; } = default!;
+    public ProjectClientInfoDto ClientInfo { get; init; } = new();
+
+    public string ApplicationName { get; init; } = string.Empty;
+
+    public string ApplicationCode { get; init; } = string.Empty;
 
     public string ApiKey { get; init; } = string.Empty;
 }
@@ -36,6 +43,8 @@ public sealed class ProjectClientInfoDto
     public Guid PlatformId { get; init; }
 
     public string Platform { get; init; } = string.Empty;
+
+    public string? Nickname { get; init; }
 
     public string? PackageName { get; init; }
 

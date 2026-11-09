@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Common.Options;
+using Mebabl.Platform.Application.Common.Security;
 using Mebabl.Platform.Application.Services.Email;
 using Mebabl.Platform.Application.Services.Jwt;
 using Mebabl.Platform.Application.Services.Password;
@@ -14,6 +16,10 @@ namespace Mebabl.Platform.Application.Features.SdkAuth.Register;
 public sealed class RegisterUserCommandHandler
     : IRequestHandler<RegisterUserCommand, RegisterUserResponse>
 {
+    private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(7);
+    private static readonly TimeSpan EmailVerificationTokenLifetime =
+        TimeSpan.FromMinutes(30);
+
     private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentApplication _currentApplication;
     private readonly IPasswordHasher _passwordHasher;
@@ -44,17 +50,51 @@ public sealed class RegisterUserCommandHandler
         RegisterUserCommand request,
         CancellationToken cancellationToken)
     {
-        var applicationId = _currentApplication.ApplicationId;
+        ArgumentNullException.ThrowIfNull(request);
 
+        if (!_currentApplication.IsAuthenticated)
+        {
+            throw new UnauthorizedAccessException(
+                "Application authentication is required.");
+        }
+
+        var applicationId = _currentApplication.ApplicationId;
         if (applicationId == Guid.Empty)
         {
             throw new UnauthorizedAccessException(
                 "Application authentication is required.");
         }
 
+        // Resolve ProjectId from the trusted database relationship, not from
+        // request data. The application token is separately validated against it.
+        var projectId = await _dbContext.Applications
+            .AsNoTracking()
+            .Where(x =>
+                x.Id == applicationId &&
+                x.IsActive &&
+                !x.IsDeleted &&
+                x.Project.IsActive &&
+                !x.Project.IsDeleted)
+            .Select(x => x.ProjectId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (projectId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The application or its project is unavailable.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Email) ||
+            request.Email.Length > 256 ||
+            string.IsNullOrWhiteSpace(request.Username) ||
+            request.Username.Length > 100 ||
+            string.IsNullOrWhiteSpace(request.Password))
+        {
+            throw new ArgumentException("Registration details are invalid.");
+        }
+
         var email = request.Email.Trim();
         var username = request.Username.Trim();
-
         var normalizedEmail = email.ToUpperInvariant();
         var normalizedUsername = username.ToUpperInvariant();
 
@@ -69,7 +109,7 @@ public sealed class RegisterUserCommandHandler
 
         if (emailExists)
         {
-            throw new Exception(
+            throw new InvalidOperationException(
                 "User with this email already exists in this application.");
         }
 
@@ -84,12 +124,27 @@ public sealed class RegisterUserCommandHandler
 
         if (usernameExists)
         {
-            throw new Exception(
+            throw new InvalidOperationException(
                 "User with this username already exists in this application.");
         }
 
-        var account = new Account();
+        var ownerRole = await _dbContext.Roles
+            .FirstOrDefaultAsync(
+                x =>
+                    x.ApplicationId == applicationId &&
+                    x.Name == "Owner" &&
+                    x.IsActive &&
+                    !x.IsDeleted,
+                cancellationToken);
 
+        if (ownerRole is null)
+        {
+            throw new InvalidOperationException(
+                "The default Owner role is not configured for this application.");
+        }
+
+        var now = DateTime.UtcNow;
+        var account = new Account();
         _dbContext.Accounts.Add(account);
 
         var applicationUser = new ApplicationUser
@@ -101,61 +156,47 @@ public sealed class RegisterUserCommandHandler
             Username = username,
             NormalizedUsername = normalizedUsername,
             PasswordHash = _passwordHasher.Hash(request.Password),
-            SecurityStamp = Guid.NewGuid().ToString(),
+            SecurityStamp = Guid.NewGuid().ToString("N"),
             EmailConfirmed = false,
             IsActive = true
         };
 
         _dbContext.ApplicationUsers.Add(applicationUser);
 
+        var rawRefreshToken = _jwtTokenGenerator.GenerateRefreshToken();
         var refreshToken = new RefreshToken
         {
             ApplicationUser = applicationUser,
-            Token = _jwtTokenGenerator.GenerateRefreshToken(),
-            ExpiresAt = DateTime.UtcNow.AddDays(7)
+            Token = null,
+            TokenHash = RefreshTokenHashing.Hash(rawRefreshToken),
+            ExpiresAt = now.Add(RefreshTokenLifetime)
         };
-
         applicationUser.RefreshTokens.Add(refreshToken);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var ownerRole = await _dbContext.Roles
-            .FirstAsync(
-                x =>
-                    x.ApplicationId == applicationUser.ApplicationId &&
-                    x.Name == "Owner",
-                cancellationToken);
 
         _dbContext.ApplicationUserRoles.Add(
             new ApplicationUserRole
             {
                 Id = Guid.NewGuid(),
-                ApplicationUserId = applicationUser.Id,
+                ApplicationUser = applicationUser,
                 RoleId = ownerRole.Id
             });
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var rawToken = _tokenService.GenerateToken();
-        var tokenHash = _tokenService.HashToken(rawToken);
+        var rawVerificationToken = _tokenService.GenerateToken();
+        var verificationToken = new ApplicationUserEmailVerificationToken
+        {
+            ApplicationUserId = applicationUser.Id,
+            TokenHash = _tokenService.HashToken(rawVerificationToken),
+            ExpiresAt = now.Add(EmailVerificationTokenLifetime)
+        };
 
-        var verificationToken =
-            new ApplicationUserEmailVerificationToken
-            {
-                UserId = applicationUser.Id,
-                TokenHash = tokenHash,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(30)
-            };
-
-        _dbContext.ApplicationUserEmailVerificationTokens
-            .Add(verificationToken);
-
+        _dbContext.ApplicationUserEmailVerificationTokens.Add(verificationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var consoleUrl = _consoleOptions.BaseUrl.TrimEnd('/');
-
         var verificationUrl =
-            $"{consoleUrl}/verify-email?token={Uri.EscapeDataString(rawToken)}";
+            $"{consoleUrl}/verify-email?token={Uri.EscapeDataString(rawVerificationToken)}";
 
         await _emailService.SendAsync(
             applicationUser.Email,
@@ -169,7 +210,7 @@ public sealed class RegisterUserCommandHandler
 
             {verificationUrl}
 
-            This link will expire in 30 minutes.
+            This link will expire in {(int)EmailVerificationTokenLifetime.TotalMinutes} minutes.
 
             If you did not create this account, you can safely ignore this email.
 
@@ -178,14 +219,28 @@ public sealed class RegisterUserCommandHandler
             cancellationToken);
 
         var roles = await _dbContext.ApplicationUserRoles
-            .Where(x => x.ApplicationUserId == applicationUser.Id)
+            .AsNoTracking()
+            .Where(x =>
+                x.ApplicationUserId == applicationUser.Id &&
+                x.Role.ApplicationId == applicationId &&
+                x.Role.IsActive &&
+                !x.Role.IsDeleted)
             .Select(x => x.Role.Name)
             .Distinct()
             .ToListAsync(cancellationToken);
 
         var permissions = await _dbContext.ApplicationUserRoles
-            .Where(x => x.ApplicationUserId == applicationUser.Id)
+            .AsNoTracking()
+            .Where(x =>
+                x.ApplicationUserId == applicationUser.Id &&
+                x.Role.ApplicationId == applicationId &&
+                x.Role.IsActive &&
+                !x.Role.IsDeleted)
             .SelectMany(x => x.Role.RolePermissions)
+            .Where(x =>
+                x.Permission.ApplicationId == applicationId &&
+                x.Permission.IsActive &&
+                !x.Permission.IsDeleted)
             .Select(x => x.Permission.Code)
             .Distinct()
             .ToListAsync(cancellationToken);
@@ -193,7 +248,9 @@ public sealed class RegisterUserCommandHandler
         var accessToken = _jwtTokenGenerator.GenerateAccessToken(
             account.Id,
             applicationUser.Id,
-            applicationUser.ApplicationId,
+            applicationId,
+            projectId,
+            applicationUser.SecurityStamp,
             roles,
             permissions);
 
@@ -201,6 +258,6 @@ public sealed class RegisterUserCommandHandler
             account.Id,
             applicationUser.Id,
             accessToken,
-            refreshToken.Token);
+            rawRefreshToken);
     }
 }

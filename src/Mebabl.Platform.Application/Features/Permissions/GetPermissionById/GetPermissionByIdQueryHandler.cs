@@ -22,19 +22,32 @@ public sealed class GetPermissionByIdQueryHandler
         GetPermissionByIdQuery request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated application is required.");
+        }
+
+        if (request.Id == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid permission ID is required.",
+                nameof(request.Id));
+        }
 
         var permission = await _dbContext.Permissions
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.Id &&
-                    x.ApplicationId == _currentApplication.ApplicationId,
+                    x.ApplicationId == applicationId,
                 cancellationToken);
 
         if (permission is null)
-            throw new Exception("Permission not found.");
+            throw new KeyNotFoundException("Permission not found.");
 
         return new GetPermissionByIdResponse(
             permission.Id,

@@ -25,41 +25,64 @@ public sealed class DeleteMessageAttachmentCommandHandler
         DeleteMessageAttachmentCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        EnsureAuthenticated();
+
+        if (request.AttachmentId == Guid.Empty)
+            throw new ArgumentException("Attachment ID is required.");
+
+        var applicationId = _currentApplication.ApplicationId;
+        var userId = _currentUser.UserId;
 
         var attachment = await _context.MessageAttachments
+            .Include(x => x.Message)
             .FirstOrDefaultAsync(
-                x => x.Id == request.AttachmentId,
+                x =>
+                    x.Id == request.AttachmentId &&
+                    !x.IsDeleted &&
+                    !x.Message.IsDeleted &&
+                    _context.Conversations.Any(c =>
+                        c.Id == x.Message.ConversationId &&
+                        c.ApplicationId == applicationId &&
+                        !c.IsDeleted),
                 cancellationToken);
 
         if (attachment is null)
-            throw new KeyNotFoundException(
-                "Attachment not found.");
+            throw new KeyNotFoundException("Attachment not found.");
 
-        var message = await _context.Messages
-            .FirstOrDefaultAsync(
-                x => x.Id == attachment.MessageId,
+        if (attachment.Message.SenderId != userId)
+        {
+            throw new UnauthorizedAccessException(
+                "Only the message sender can remove this attachment.");
+        }
+
+        var isParticipant = await _context.ConversationParticipants
+            .AnyAsync(
+                x =>
+                    x.ConversationId == attachment.Message.ConversationId &&
+                    x.UserId == userId &&
+                    x.LeftAt == null,
                 cancellationToken);
 
-        if (message is null)
-            throw new KeyNotFoundException(
-                "Message not found.");
+        if (!isParticipant)
+            throw new UnauthorizedAccessException(
+                "User is not an active conversation participant.");
 
-        var participantExists =
-            await _context.ConversationParticipants
-                .AnyAsync(
-                    x =>
-                        x.ConversationId == message.ConversationId &&
-                        x.UserId == _currentUser.UserId &&
-                        x.LeftAt == null,
-                    cancellationToken);
-
-        if (!participantExists)
-            throw new UnauthorizedAccessException();
-
-        _context.MessageAttachments.Remove(attachment);
+        attachment.IsDeleted = true;
+        attachment.DeletedAt = DateTime.UtcNow;
+        attachment.DeletedBy = userId;
 
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private void EnsureAuthenticated()
+    {
+        if (!_currentApplication.IsAuthenticated ||
+            !_currentUser.IsAuthenticated ||
+            _currentApplication.ApplicationId == Guid.Empty ||
+            _currentUser.ApplicationId != _currentApplication.ApplicationId ||
+            _currentUser.UserId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException();
+        }
     }
 }

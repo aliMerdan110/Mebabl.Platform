@@ -1,11 +1,9 @@
-using System.Security.Cryptography;
-using System.Text;
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Services.Clock;
 using Mebabl.Platform.Application.Services.Live;
-using Mebabl.Platform.Domain.Live;
 using Mebabl.Platform.Domain.Live.Enums;
 
 namespace Mebabl.Platform.Application.Features.Live.Sessions.PublishStream;
@@ -37,11 +35,23 @@ public sealed class PublishStreamCommandHandler
         PublishStreamCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentUser.IsAuthenticated)
-            throw new UnauthorizedAccessException();
-
         var applicationId = _currentUser.ApplicationId;
         var userId = _currentUser.UserId;
+
+        if (!_currentUser.IsAuthenticated ||
+            applicationId == Guid.Empty ||
+            userId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated application user is required.");
+        }
+
+        if (request.StreamId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid stream ID is required.",
+                nameof(request.StreamId));
+        }
 
         var allowed = await _authorization.CanPublishAsync(
             applicationId,
@@ -49,36 +59,24 @@ public sealed class PublishStreamCommandHandler
             cancellationToken);
 
         if (!allowed)
+        {
             throw new UnauthorizedAccessException(
                 "The current user is not allowed to publish.");
+        }
 
-        var streamName = $"live-{userId:N}";
+        // لا تسمح بالنشر على بث تابع لتطبيق آخر.
+        var stream = await _dbContext.LiveStreams
+            .FirstOrDefaultAsync(
+                x =>
+                    x.Id == request.StreamId &&
+                    x.ApplicationId == applicationId,
+                cancellationToken);
 
-var stream = await _dbContext.LiveStreams
-    .FirstOrDefaultAsync(
-        x =>
-            x.ApplicationId == applicationId &&
-            x.Name == streamName,
-        cancellationToken);
-
-if (stream is null)
-{
-    var nowForStream = _clock.UtcNow;
-
-    stream = new LiveStream
-    {
-        Id = Guid.NewGuid(),
-        ApplicationId = applicationId,
-        Name = streamName,
-        Title = "Live Stream",
-        Description = null,
-        Status = LiveStreamStatus.Offline,
-        CreatedAt = nowForStream,
-        UpdatedAt = nowForStream
-    };
-
-    _dbContext.LiveStreams.Add(stream);
-}
+        if (stream is null)
+        {
+            throw new KeyNotFoundException(
+                "Live stream was not found.");
+        }
 
         var activeSession = await _dbContext.LiveStreamSessions
             .FirstOrDefaultAsync(
@@ -88,76 +86,87 @@ if (stream is null)
                 cancellationToken);
 
         if (activeSession is not null)
-            throw new InvalidOperationException(
-                "The live stream already has an active session.");
-
-        var credential = await _dbContext.StreamCredentials
-            .FirstOrDefaultAsync(
-                x =>
-                    x.LiveStreamId == stream.Id &&
-                    x.IsActive,
-                cancellationToken);
-
-        if (credential is null)
         {
-            var nowForCredential = _clock.UtcNow;
+            var checkedAt = _clock.UtcNow;
 
-            var rawStreamKey = Convert.ToBase64String(
-                RandomNumberGenerator.GetBytes(32));
+            var canExpire =
+                activeSession.Status == LiveSessionStatus.Starting &&
+                checkedAt >= activeSession.PublishTokenExpiresAt;
 
-            var keyHash = Convert.ToHexString(
-                SHA256.HashData(
-                    Encoding.UTF8.GetBytes(rawStreamKey)));
-
-            credential = new StreamCredential
+            if (!canExpire)
             {
-                Id = Guid.NewGuid(),
-                LiveStreamId = stream.Id,
-                KeyHash = keyHash,
-                IsActive = true,
-                CreatedAt = nowForCredential
-            };
+                throw new InvalidOperationException(
+                    "The live stream already has an active session.");
+            }
 
-            _dbContext.StreamCredentials.Add(credential);
+            // انتهت صلاحية محاولة النشر ولم يبدأ البث.
+            activeSession.Status = LiveSessionStatus.Ended;
+            activeSession.EndedAt = checkedAt;
+
+            stream.Status = LiveStreamStatus.Offline;
+            stream.UpdatedAt = checkedAt;
+
+            // حفظ الإنهاء قبل إنشاء جلسة جديدة،
+            // لأن PostgreSQL يمنع الجلسات غير المنتهية المكررة.
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
         var rawPublishToken =
             _publishTokenService.GenerateToken();
 
         var publishTokenHash =
-            _publishTokenService.HashToken(
-                rawPublishToken);
+            _publishTokenService.HashToken(rawPublishToken);
 
         var now = _clock.UtcNow;
+        var expiresAt = now.AddMinutes(15);
 
-        var publishTokenExpiresAt =
-            now.AddMinutes(15);
-
-        var session = new LiveStreamSession
-        {
-            Id = Guid.NewGuid(),
-            LiveStreamId = stream.Id,
-            PublisherUserId = userId,
-            PublishTokenHash = publishTokenHash,
-            PublishTokenExpiresAt = publishTokenExpiresAt,
-            Status = LiveSessionStatus.Starting,
-            CreatedAt = now,
-            StartedAt = null,
-            EndedAt = null
-        };
+        var session =
+            new Mebabl.Platform.Domain.Live.LiveStreamSession
+            {
+                Id = Guid.NewGuid(),
+                LiveStreamId = stream.Id,
+                PublisherUserId = userId,
+                PublishTokenHash = publishTokenHash,
+                PublishTokenExpiresAt = expiresAt,
+                Status = LiveSessionStatus.Starting,
+                CreatedAt = now,
+                StartedAt = null,
+                EndedAt = null
+            };
 
         stream.Status = LiveStreamStatus.Starting;
         stream.UpdatedAt = now;
 
         _dbContext.LiveStreamSessions.Add(session);
 
-        await _dbContext.SaveChangesAsync(
-            cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // تحقّق من وجود جلسة أخرى نشطة بعد تعارض الحفظ.
+            var hasActiveSession =
+                await _dbContext.LiveStreamSessions.AnyAsync(
+                    x =>
+                        x.LiveStreamId == stream.Id &&
+                        x.Status != LiveSessionStatus.Ended,
+                    cancellationToken);
+
+            if (hasActiveSession)
+            {
+                throw new InvalidOperationException(
+                    "The live stream already has an active session.");
+            }
+
+            // لا نخفي أخطاء قاعدة البيانات الأخرى.
+            throw;
+        }
 
         var whipUrl =
-            $"https://live.mebabl.com/rtc/v1/whip/" +
+            "https://live.mebabl.com/rtc/v1/whip/" +
             $"?app=live" +
-            $"&stream=livestream" +
+            $"&stream={Uri.EscapeDataString(stream.Name)}" +
             $"&sessionId={session.Id}" +
             $"&token={Uri.EscapeDataString(rawPublishToken)}";
 
@@ -166,6 +175,6 @@ if (stream is null)
             session.Id,
             whipUrl,
             rawPublishToken,
-            publishTokenExpiresAt);
+            expiresAt);
     }
 }

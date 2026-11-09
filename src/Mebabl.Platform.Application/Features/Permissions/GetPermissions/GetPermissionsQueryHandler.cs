@@ -22,12 +22,18 @@ public sealed class GetPermissionsQueryHandler
         GetPermissionsQuery request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated application is required.");
+        }
 
         return await _dbContext.Permissions
             .AsNoTracking()
-            .Where(x => x.ApplicationId == _currentApplication.ApplicationId)
+            .Where(x => x.ApplicationId == applicationId)
             .OrderBy(x => x.Category)
             .ThenBy(x => x.Name)
             .Select(x => new PermissionListItem(

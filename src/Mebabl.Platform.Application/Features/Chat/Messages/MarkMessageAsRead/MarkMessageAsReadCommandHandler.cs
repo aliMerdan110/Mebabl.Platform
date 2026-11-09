@@ -1,5 +1,7 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Domain.Modules.Chat.Entities;
 
@@ -26,48 +28,75 @@ public sealed class MarkMessageAsReadCommandHandler
         MarkMessageAsReadCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+        var userId = _currentUser.UserId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            !_currentUser.IsAuthenticated ||
+            applicationId == Guid.Empty ||
+            userId == Guid.Empty ||
+            _currentUser.ApplicationId != applicationId)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated user of this application is required.");
+        }
+
+        if (request.MessageId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid message ID is required.",
+                nameof(request.MessageId));
+        }
 
         var message = await _context.Messages
+            .AsNoTracking()
             .FirstOrDefaultAsync(
-                x => x.Id == request.MessageId,
+                x =>
+                    x.Id == request.MessageId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (message is null)
-            throw new KeyNotFoundException(
-                "Message not found.");
+        {
+            throw new KeyNotFoundException("Message not found.");
+        }
 
-        var participantExists =
-            await _context.ConversationParticipants
-                .AnyAsync(
-                    x =>
-                        x.ConversationId == message.ConversationId &&
-                        x.UserId == _currentUser.UserId &&
-                        x.LeftAt == null,
-                    cancellationToken);
-
-        if (!participantExists)
-            throw new UnauthorizedAccessException();
-
-        var existingRead = await _context.MessageReads
-            .FirstOrDefaultAsync(
+        var isParticipant = await _context.ConversationParticipants
+            .AsNoTracking()
+            .AnyAsync(
                 x =>
-                    x.MessageId == request.MessageId &&
-                    x.UserId == _currentUser.UserId,
+                    x.ConversationId == message.ConversationId &&
+                    x.UserId == userId &&
+                    x.LeftAt == null &&
+                    x.Conversation.ApplicationId == applicationId &&
+                    !x.Conversation.IsDeleted,
                 cancellationToken);
 
-        if (existingRead is not null)
-            return;
-
-        var messageRead = new MessageRead
+        if (!isParticipant)
         {
-            MessageId = message.Id,
-            UserId = _currentUser.UserId,
-            ReadAt = DateTime.UtcNow
-        };
+            throw new KeyNotFoundException(
+                "Message not found or access is unavailable.");
+        }
 
-        _context.MessageReads.Add(messageRead);
+        var alreadyRead = await _context.MessageReads
+            .AnyAsync(
+                x =>
+                    x.MessageId == request.MessageId &&
+                    x.UserId == userId,
+                cancellationToken);
+
+        if (alreadyRead)
+        {
+            return;
+        }
+
+        _context.MessageReads.Add(
+            new MessageRead
+            {
+                MessageId = message.Id,
+                UserId = userId,
+                ReadAt = DateTime.UtcNow
+            });
 
         await _context.SaveChangesAsync(cancellationToken);
     }

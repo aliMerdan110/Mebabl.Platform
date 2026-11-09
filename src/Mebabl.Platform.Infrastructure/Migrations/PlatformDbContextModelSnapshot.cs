@@ -64,67 +64,6 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.ToTable("ApplicationMobileAppLinks", (string)null);
                 });
 
-            modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Applications.ApplicationPlatform", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ApplicationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("BundleId")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Domain")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Nickname")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("PackageName")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("Platform")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApplicationId", "Platform");
-
-                    b.ToTable("ApplicationPlatforms", (string)null);
-                });
-
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Commerce.Cart", b =>
                 {
                     b.Property<Guid>("Id")
@@ -610,9 +549,6 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.Property<Guid>("CollectionId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("CollectionId1")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -635,13 +571,12 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int>("Version")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CollectionId");
-
-                    b.HasIndex("CollectionId1");
 
                     b.HasIndex("ApplicationId", "CollectionId", "CreatedAt");
 
@@ -671,7 +606,7 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.Property<bool>("CanRead")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
-                        .HasDefaultValue(true);
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("CanWrite")
                         .ValueGeneratedOnAdd()
@@ -1022,6 +957,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("ApplicationUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1042,8 +980,8 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1054,15 +992,12 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.Property<DateTime?>("UsedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("ApplicationUserId", "ExpiresAt");
 
                     b.ToTable("ApplicationUserEmailVerificationTokens", (string)null);
                 });
@@ -1071,6 +1006,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationUserId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1104,12 +1042,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.Property<DateTime?>("UsedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("ApplicationUserId");
 
                     b.ToTable("ApplicationUserPasswordResetTokens");
                 });
@@ -1198,7 +1133,8 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1296,8 +1232,12 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Token")
-                        .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("TokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1307,10 +1247,13 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DeveloperId");
-
                     b.HasIndex("Token")
                         .IsUnique();
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("DeveloperId", "ExpiresAt");
 
                     b.ToTable("DeveloperRefreshTokens", (string)null);
                 });
@@ -1402,13 +1345,6 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
-                    b.Property<Guid>("DeveloperId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Domain")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -1423,6 +1359,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("ProjectPlatformId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid");
 
@@ -1434,15 +1373,12 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.HasIndex("DeveloperId");
-
                     b.HasIndex("TenantId");
 
                     b.HasIndex("ProjectId", "Code")
                         .IsUnique();
+
+                    b.HasIndex("ProjectId", "ProjectPlatformId");
 
                     b.ToTable("Applications", (string)null);
                 });
@@ -1534,9 +1470,12 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Token")
-                        .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
+
+                    b.Property<string>("TokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1549,6 +1488,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.HasIndex("ApplicationUserId");
 
                     b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("TokenHash")
                         .IsUnique();
 
                     b.ToTable("RefreshTokens", (string)null);
@@ -1774,8 +1716,8 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1815,12 +1757,117 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("DeveloperId", "Code")
                         .IsUnique();
 
-                    b.HasIndex("DeveloperId");
-
                     b.ToTable("Projects", (string)null);
+                });
+
+            modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Projects.ProjectPlatform", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BundleId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Domain")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nickname")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PackageName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ProjectPlatforms", (string)null);
+                });
+
+            modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Projects.ProjectPlatformFingerprint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FingerprintType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ProjectPlatformId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(95)
+                        .HasColumnType("character varying(95)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectPlatformId", "FingerprintType", "Value")
+                        .IsUnique();
+
+                    b.ToTable("ProjectPlatformFingerprints", (string)null);
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Projects.ProjectSdkConfiguration", b =>
@@ -1857,13 +1904,13 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.Property<string>("ProjectNumber")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.Property<string>("PublicKey")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1877,6 +1924,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("ProjectNumber")
+                        .IsUnique();
+
+                    b.HasIndex("PublicKey")
                         .IsUnique();
 
                     b.ToTable("ProjectSdkConfigurations", (string)null);
@@ -2746,17 +2796,6 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Applications.ApplicationPlatform", b =>
-                {
-                    b.HasOne("Mebabl.Platform.Domain.Entities.Identity.PlatformApplication", "Application")
-                        .WithMany("Platforms")
-                        .HasForeignKey("ApplicationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Application");
-                });
-
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Commerce.CartItem", b =>
                 {
                     b.HasOne("Mebabl.Platform.Domain.Entities.Commerce.Cart", "Cart")
@@ -2839,14 +2878,10 @@ namespace Mebabl.Platform.Infrastructure.Migrations
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Database.Document", b =>
                 {
                     b.HasOne("Mebabl.Platform.Domain.Entities.Database.Collection", "Collection")
-                        .WithMany()
+                        .WithMany("Documents")
                         .HasForeignKey("CollectionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("Mebabl.Platform.Domain.Entities.Database.Collection", null)
-                        .WithMany("Documents")
-                        .HasForeignKey("CollectionId1");
 
                     b.Navigation("Collection");
                 });
@@ -2907,13 +2942,13 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.HasOne("Mebabl.Platform.Domain.Entities.Identity.Account", "Account")
                         .WithMany("ApplicationUsers")
                         .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Mebabl.Platform.Domain.Entities.Identity.PlatformApplication", "Application")
                         .WithMany("Users")
                         .HasForeignKey("ApplicationId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Account");
@@ -2923,24 +2958,24 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Identity.ApplicationUserEmailVerificationToken", b =>
                 {
-                    b.HasOne("Mebabl.Platform.Domain.Entities.Identity.ApplicationUser", "User")
+                    b.HasOne("Mebabl.Platform.Domain.Entities.Identity.ApplicationUser", "ApplicationUser")
                         .WithMany("EmailVerificationTokens")
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("ApplicationUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("ApplicationUser");
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Identity.ApplicationUserPasswordResetToken", b =>
                 {
-                    b.HasOne("Mebabl.Platform.Domain.Entities.Identity.ApplicationUser", "User")
+                    b.HasOne("Mebabl.Platform.Domain.Entities.Identity.ApplicationUser", "ApplicationUser")
                         .WithMany("PasswordResetTokens")
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("ApplicationUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("ApplicationUser");
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Identity.ApplicationUserRole", b =>
@@ -2997,12 +3032,6 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Identity.PlatformApplication", b =>
                 {
-                    b.HasOne("Mebabl.Platform.Domain.Entities.Identity.Developer", "Developer")
-                        .WithMany("Applications")
-                        .HasForeignKey("DeveloperId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("Mebabl.Platform.Domain.Entities.Projects.PlatformProject", "Project")
                         .WithMany("Applications")
                         .HasForeignKey("ProjectId")
@@ -3013,9 +3042,16 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .WithMany("Applications")
                         .HasForeignKey("TenantId");
 
-                    b.Navigation("Developer");
+                    b.HasOne("Mebabl.Platform.Domain.Entities.Projects.ProjectPlatform", "ProjectPlatform")
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "ProjectPlatformId")
+                        .HasPrincipalKey("ProjectId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Project");
+
+                    b.Navigation("ProjectPlatform");
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Identity.Profile", b =>
@@ -3075,10 +3111,32 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.HasOne("Mebabl.Platform.Domain.Entities.Identity.Developer", "Developer")
                         .WithMany("Projects")
                         .HasForeignKey("DeveloperId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Developer");
+                });
+
+            modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Projects.ProjectPlatform", b =>
+                {
+                    b.HasOne("Mebabl.Platform.Domain.Entities.Projects.PlatformProject", "Project")
+                        .WithMany("Platforms")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Projects.ProjectPlatformFingerprint", b =>
+                {
+                    b.HasOne("Mebabl.Platform.Domain.Entities.Projects.ProjectPlatform", "ProjectPlatform")
+                        .WithMany()
+                        .HasForeignKey("ProjectPlatformId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProjectPlatform");
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Projects.ProjectSdkConfiguration", b =>
@@ -3265,8 +3323,6 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Identity.Developer", b =>
                 {
-                    b.Navigation("Applications");
-
                     b.Navigation("PasswordResetTokens");
 
                     b.Navigation("Projects");
@@ -3286,8 +3342,6 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.Navigation("Credentials");
 
                     b.Navigation("Permissions");
-
-                    b.Navigation("Platforms");
 
                     b.Navigation("Roles");
 
@@ -3311,6 +3365,8 @@ namespace Mebabl.Platform.Infrastructure.Migrations
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Projects.PlatformProject", b =>
                 {
                     b.Navigation("Applications");
+
+                    b.Navigation("Platforms");
 
                     b.Navigation("SdkConfiguration");
                 });

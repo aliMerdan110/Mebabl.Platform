@@ -7,7 +7,13 @@ public sealed class DeleteDocumentCommandValidator
 {
     public DeleteDocumentCommandValidator()
     {
+        RuleFor(x => x.CollectionId)
+            .NotEmpty();
+
         RuleFor(x => x.DocumentId)
             .NotEmpty();
+
+        RuleFor(x => x.ExpectedVersion)
+            .GreaterThan(0);
     }
 }

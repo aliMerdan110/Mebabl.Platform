@@ -1,14 +1,19 @@
+
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Common.Security;
 using Mebabl.Platform.Application.Services.Jwt;
-using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Application.Features.Developers.RefreshToken;
 
 public sealed class RefreshDeveloperTokenCommandHandler
-    : IRequestHandler<RefreshDeveloperTokenCommand, RefreshDeveloperTokenResponse>
+    : IRequestHandler<
+        RefreshDeveloperTokenCommand,
+        RefreshDeveloperTokenResponse>
 {
+    private static readonly TimeSpan RefreshTokenLifetime =
+        TimeSpan.FromDays(7);
+
     private readonly IApplicationDbContext _dbContext;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
 
@@ -24,42 +29,50 @@ public sealed class RefreshDeveloperTokenCommandHandler
         RefreshDeveloperTokenCommand request,
         CancellationToken cancellationToken)
     {
-        var refreshToken = await _dbContext.DeveloperRefreshTokens
-            .Include(x => x.Developer)
-            .FirstOrDefaultAsync(
-                x => x.Token == request.RefreshToken,
+        if (request is null ||
+            string.IsNullOrWhiteSpace(request.RefreshToken) ||
+            request.RefreshToken.Length > 512)
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid, expired, or revoked refresh token.");
+        }
+
+        var now = DateTime.UtcNow;
+        var currentToken = request.RefreshToken;
+        var currentTokenHash = RefreshTokenHashing.Hash(currentToken);
+
+        // Generate a new refresh token and keep only its hash in storage.
+        var newRawRefreshToken =
+            _jwtTokenGenerator.GenerateRefreshToken();
+
+        var newRefreshTokenHash =
+            RefreshTokenHashing.Hash(newRawRefreshToken);
+
+        // This operation must atomically validate and revoke the
+        // current token, then persist the replacement token.
+        // It also supports legacy plaintext tokens during migration.
+        var developerId =
+            await _dbContext.RotateDeveloperRefreshTokenAsync(
+                currentToken,
+                currentTokenHash,
+                newRefreshTokenHash,
+                now,
+                now.Add(RefreshTokenLifetime),
                 cancellationToken);
 
-       
-if (refreshToken is null)
-    throw new UnauthorizedAccessException("Invalid refresh token.");
-
-if (refreshToken.IsRevoked)
-    throw new UnauthorizedAccessException("Refresh token has been revoked.");
-
-if (refreshToken.IsExpired)
-    throw new UnauthorizedAccessException("Refresh token has expired.");
-
-
-        refreshToken.RevokedAt = DateTime.UtcNow;
-
-        var newRefreshToken = new DeveloperRefreshToken
+        if (!developerId.HasValue ||
+            developerId.Value == Guid.Empty)
         {
-            DeveloperId = refreshToken.DeveloperId,
-            Token = _jwtTokenGenerator.GenerateRefreshToken(),
-            ExpiresAt = DateTime.UtcNow.AddDays(7)
-        };
-
-        _dbContext.DeveloperRefreshTokens.Add(newRefreshToken);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            throw new UnauthorizedAccessException(
+                "Invalid, expired, or revoked refresh token.");
+        }
 
         var accessToken =
             _jwtTokenGenerator.GenerateDeveloperToken(
-                refreshToken.DeveloperId);
+                developerId.Value);
 
         return new RefreshDeveloperTokenResponse(
             accessToken,
-            newRefreshToken.Token);
+            newRawRefreshToken);
     }
 }

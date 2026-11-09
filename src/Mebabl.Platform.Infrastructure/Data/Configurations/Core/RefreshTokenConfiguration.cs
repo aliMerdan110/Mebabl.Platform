@@ -4,7 +4,7 @@ using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Infrastructure.Data.Configurations.Core;
 
-public class RefreshTokenConfiguration
+public sealed class RefreshTokenConfiguration
     : IEntityTypeConfiguration<RefreshToken>
 {
     public void Configure(EntityTypeBuilder<RefreshToken> builder)
@@ -13,19 +13,32 @@ public class RefreshTokenConfiguration
 
         builder.HasKey(x => x.Id);
 
-        builder.HasIndex(x => x.Token)
-               .IsUnique();
-
+        // Legacy token storage; nullable during migration.
         builder.Property(x => x.Token)
-               .IsRequired()
-               .HasMaxLength(512);
+            .HasMaxLength(512)
+            .IsRequired(false);
+
+        // SHA-256 hash of the refresh token.
+        builder.Property(x => x.TokenHash)
+            .HasMaxLength(64)
+            .IsRequired(false);
 
         builder.Property(x => x.ExpiresAt)
-               .IsRequired();
+            .IsRequired();
+
+        builder.Property(x => x.RevokedAt)
+            .IsRequired(false);
+
+        builder.HasIndex(x => x.Token)
+            .IsUnique();
+
+        builder.HasIndex(x => x.TokenHash)
+            .IsUnique();
 
         builder.HasOne(x => x.ApplicationUser)
-               .WithMany(x => x.RefreshTokens)
-               .HasForeignKey(x => x.ApplicationUserId)
-               .OnDelete(DeleteBehavior.Cascade);
+            .WithMany(x => x.RefreshTokens)
+            .HasForeignKey(x => x.ApplicationUserId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

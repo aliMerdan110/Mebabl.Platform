@@ -25,16 +25,24 @@ public sealed class GetApplicationCredentialsQueryHandler
         CancellationToken cancellationToken)
     {
         if (!_currentDeveloper.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated developer is required.");
+        }
 
-        var exists = await _dbContext.Applications.AnyAsync(
-            x =>
-                x.Id == request.ApplicationId &&
-                x.DeveloperId == _currentDeveloper.DeveloperId,
-            cancellationToken);
+        var exists = await _dbContext.Applications
+            .AsNoTracking()
+            .AnyAsync(
+                x =>
+                    x.Id == request.ApplicationId &&
+                    x.Project.DeveloperId == _currentDeveloper.DeveloperId &&
+                    !x.IsDeleted,
+                cancellationToken);
 
         if (!exists)
-            throw new Exception("Application not found.");
+        {
+            throw new KeyNotFoundException("Application not found.");
+        }
 
         return await _dbContext.ApplicationCredentials
             .AsNoTracking()

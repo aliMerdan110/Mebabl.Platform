@@ -1,6 +1,8 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Common.Security;
 using Mebabl.Platform.Application.Services.Jwt;
 using Mebabl.Platform.Application.Services.Password;
 using Mebabl.Platform.Domain.Entities.Identity;
@@ -10,6 +12,9 @@ namespace Mebabl.Platform.Application.Features.Developers.Login;
 public sealed class LoginDeveloperCommandHandler
     : IRequestHandler<LoginDeveloperCommand, LoginDeveloperResponse>
 {
+    private static readonly TimeSpan RefreshTokenLifetime =
+        TimeSpan.FromDays(7);
+
     private readonly IApplicationDbContext _dbContext;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
@@ -28,31 +33,49 @@ public sealed class LoginDeveloperCommandHandler
         LoginDeveloperCommand request,
         CancellationToken cancellationToken)
     {
-        var normalizedEmail = request.Email.Trim().ToUpperInvariant();
+        if (request is null ||
+            string.IsNullOrWhiteSpace(request.Email) ||
+            request.Email.Length > 256 ||
+            string.IsNullOrWhiteSpace(request.Password))
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid email or password.");
+        }
+
+        var normalizedEmail =
+            request.Email.Trim().ToUpperInvariant();
 
         var developer = await _dbContext.Developers
             .FirstOrDefaultAsync(
-                x => x.NormalizedEmail == normalizedEmail,
+                x =>
+                    x.NormalizedEmail == normalizedEmail &&
+                    !x.IsDeleted,
                 cancellationToken);
 
-        if (developer is null)
-            throw new Exception("Invalid email or password.");
+        if (developer is null ||
+            !developer.IsActive ||
+            string.IsNullOrWhiteSpace(developer.PasswordHash) ||
+            !_passwordHasher.Verify(
+                request.Password,
+                developer.PasswordHash))
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid email or password.");
+        }
 
-        if (!developer.IsActive)
-            throw new Exception("Developer account is disabled.");
+        var now = DateTime.UtcNow;
 
-        var validPassword = _passwordHasher.Verify(
-            request.Password,
-            developer.PasswordHash);
+        // Generate the raw refresh token for the client.
+        var rawRefreshToken =
+            _jwtTokenGenerator.GenerateRefreshToken();
 
-        if (!validPassword)
-            throw new Exception("Invalid email or password.");
-
+        // Persist only the SHA-256 hash, never the raw token.
         var refreshToken = new DeveloperRefreshToken
         {
             DeveloperId = developer.Id,
-            Token = _jwtTokenGenerator.GenerateRefreshToken(),
-            ExpiresAt = DateTime.UtcNow.AddDays(7)
+            Token = null,
+            TokenHash = RefreshTokenHashing.Hash(rawRefreshToken),
+            ExpiresAt = now.Add(RefreshTokenLifetime)
         };
 
         _dbContext.DeveloperRefreshTokens.Add(refreshToken);
@@ -64,6 +87,6 @@ public sealed class LoginDeveloperCommandHandler
 
         return new LoginDeveloperResponse(
             accessToken,
-            refreshToken.Token);
+            rawRefreshToken);
     }
 }

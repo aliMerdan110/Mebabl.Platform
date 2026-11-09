@@ -9,5 +9,8 @@ public sealed class DeleteSecurityRuleValidator
     {
         RuleFor(x => x.Id)
             .NotEmpty();
+
+        RuleFor(x => x.ExpectedRevision)
+            .GreaterThan(0);
     }
 }

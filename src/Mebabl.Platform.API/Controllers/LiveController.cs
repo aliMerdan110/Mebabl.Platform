@@ -3,11 +3,14 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Mebabl.Platform.Application.Features.Live.Streams.CreateStream;
+using Microsoft.AspNetCore.Authorization;
+
 
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
-[Route("api/applications/{applicationId}/live")]
+[Route("api/applications/{applicationId:guid}/live")]
+[Authorize(Policy = "Developer")]
 public sealed class LiveController : ControllerBase
 {
     private readonly IMediator _mediator;

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Mebabl.Platform.Application.Features.Live.Sessions.PublishStream;
 using Mebabl.Platform.Application.Features.Live.Sessions.StopStream;
@@ -9,7 +10,8 @@ namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
 [Route("api/sdk/live")]
-[Authorize]
+[Authorize(Policy = "ApplicationUser")]
+[EnableCors("MebablSdk")]
 public sealed class SdkLiveController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -18,10 +20,6 @@ public sealed class SdkLiveController : ControllerBase
     {
         _mediator = mediator;
     }
-
-    // ------------------------------------------------------------
-    // Get Live Streams
-    // ------------------------------------------------------------
 
     [HttpGet("streams")]
     public async Task<IActionResult> GetStreams(
@@ -34,38 +32,47 @@ public sealed class SdkLiveController : ControllerBase
         return Ok(result);
     }
 
-    // ------------------------------------------------------------
-    // Start Publish Session
-    // ------------------------------------------------------------
-
     [HttpPost("publish")]
-    public async Task<IActionResult> Publish(
-        CancellationToken cancellationToken)
+public async Task<IActionResult> Publish(
+    [FromBody] PublishStreamRequest? request,
+    CancellationToken cancellationToken)
+{
+    if (request is null || request.StreamId == Guid.Empty)
     {
-        var result = await _mediator.Send(
-            new PublishStreamCommand(),
-            cancellationToken);
-
-        return Ok(result);
+        return BadRequest(new
+        {
+            message = "A valid stream ID is required."
+        });
     }
 
-    // ------------------------------------------------------------
-    // Stop Publish Session
-    // ------------------------------------------------------------
+    var result = await _mediator.Send(
+        new PublishStreamCommand(request.StreamId),
+        cancellationToken);
+
+    return Ok(result);
+}
 
     [HttpPost("stop")]
     public async Task<IActionResult> Stop(
-        [FromBody] StopStreamRequest request,
+        [FromBody] StopStreamRequest? request,
         CancellationToken cancellationToken)
     {
+        if (request is null || request.SessionId == Guid.Empty)
+        {
+            return BadRequest(new
+            {
+                message = "A valid session ID is required."
+            });
+        }
+
         await _mediator.Send(
-            new StopStreamCommand(
-                request.SessionId),
+            new StopStreamCommand(request.SessionId),
             cancellationToken);
 
         return NoContent();
     }
 }
 
-public sealed record StopStreamRequest(
-    Guid SessionId);
+public sealed record StopStreamRequest(Guid SessionId);
+
+public sealed record PublishStreamRequest(Guid StreamId);

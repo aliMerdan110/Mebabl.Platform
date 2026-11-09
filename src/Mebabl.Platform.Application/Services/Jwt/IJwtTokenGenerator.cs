@@ -6,12 +6,20 @@ public interface IJwtTokenGenerator
 
     string GenerateApplicationToken(
         Guid applicationId,
+        Guid projectId,
+        Guid credentialId);
+
+    string GeneratePublicApplicationToken(
+        Guid applicationId,
+        Guid projectId,
         Guid credentialId);
 
     string GenerateAccessToken(
         Guid accountId,
         Guid userId,
         Guid applicationId,
+        Guid projectId,
+        string securityStamp,
         IReadOnlyCollection<string> roles,
         IReadOnlyCollection<string> permissions);
 

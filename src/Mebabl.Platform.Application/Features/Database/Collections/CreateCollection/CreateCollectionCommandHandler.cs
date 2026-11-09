@@ -1,119 +1,189 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Features.Database.Collections.DTOs;
 using Mebabl.Platform.Domain.Entities.Database;
 
 namespace Mebabl.Platform.Application.Features.Database.Collections.CreateCollection;
 
+/// <summary>
+/// Creates a collection in the authenticated application's project database.
+/// The application authenticates the caller; ProjectId is the data-isolation boundary.
+/// </summary>
 public sealed class CreateCollectionCommandHandler
     : IRequestHandler<CreateCollectionCommand, CollectionResponse>
 {
+    private const int MaximumNameLength = 100;
+    private const int MaximumDescriptionLength = 500;
+
     private readonly IApplicationDbContext _dbContext;
-    private readonly ICurrentUser _currentUser;
+    private readonly ICurrentApplication _currentApplication;
 
     public CreateCollectionCommandHandler(
         IApplicationDbContext dbContext,
-        ICurrentUser currentUser)
+        ICurrentApplication currentApplication)
     {
-        _dbContext = dbContext;
-        _currentUser = currentUser;
+        _dbContext = dbContext
+            ?? throw new ArgumentNullException(nameof(dbContext));
+        _currentApplication = currentApplication
+            ?? throw new ArgumentNullException(nameof(currentApplication));
     }
 
     public async Task<CollectionResponse> Handle(
         CreateCollectionCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentUser.IsAuthenticated ||
-            _currentUser.ApplicationId == Guid.Empty)
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!_currentApplication.IsAuthenticated)
         {
-            throw new UnauthorizedAccessException();
+            throw new UnauthorizedAccessException(
+                "An authenticated trusted application is required.");
         }
 
-        var applicationId = _currentUser.ApplicationId;
-        var name = request.Name.Trim();
+        var applicationId = _currentApplication.ApplicationId;
+        if (applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The authenticated application context is invalid.");
+        }
 
-        var exists = await _dbContext.Collections.AnyAsync(
-            x => x.ApplicationId == applicationId &&
-                 x.Name.ToLower() == name.ToLower(),
-            cancellationToken);
+        var name = NormalizeName(request.Name);
+        var description = NormalizeDescription(request.Description);
 
-        if (exists)
-            throw new InvalidOperationException(
-                "Collection already exists.");
+        // Resolve project ownership from the trusted application record.
+        // ProjectId is never accepted from the client request.
+        var applicationScope = await _dbContext.Applications
+            .AsNoTracking()
+            .Where(application =>
+                application.Id == applicationId &&
+                application.IsActive &&
+                !application.IsDeleted &&
+                application.Project.IsActive &&
+                !application.Project.IsDeleted)
+            .Select(application => new
+            {
+                application.Id,
+                application.ProjectId
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
+        if (applicationScope is null || applicationScope.ProjectId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The application or its project is unavailable.");
+        }
+
+        var projectId = applicationScope.ProjectId;
         var code = GenerateCode(name);
 
-        var codeExists = await _dbContext.Collections.AnyAsync(
-            x => x.ApplicationId == applicationId &&
-                 x.Code == code,
-            cancellationToken);
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new ArgumentException(
+                "Collection name must contain at least one letter or number.",
+                nameof(request.Name));
+        }
+
+        var nameExists = await _dbContext.Collections
+            .AsNoTracking()
+            .AnyAsync(collection =>
+                    collection.ProjectId == projectId &&
+                    !collection.IsDeleted &&
+                    collection.Name.ToLower() == name.ToLower(),
+                cancellationToken);
+
+        if (nameExists)
+        {
+            throw new InvalidOperationException(
+                "A collection with this name already exists in the project.");
+        }
+
+        var codeExists = await _dbContext.Collections
+            .AsNoTracking()
+            .AnyAsync(collection =>
+                    collection.ProjectId == projectId &&
+                    !collection.IsDeleted &&
+                    collection.Code == code,
+                cancellationToken);
 
         if (codeExists)
         {
-            code = $"{code}_{Guid.NewGuid():N}";
+            throw new InvalidOperationException(
+                "A collection with this code already exists in the project.");
         }
 
         var collection = new Collection
         {
-            ApplicationId = applicationId,
+            ProjectId = projectId,
             Name = name,
             Code = code,
-            Description = request.Description?.Trim() ?? string.Empty
+            Description = description,
+            IsSystem = false,
+            IsActive = true
         };
 
+        // New collections have no published policy and remain inaccessible
+        // until a valid policy is explicitly published.
         _dbContext.Collections.Add(collection);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        // Create default security rules for the new collection.
-        var permissions = new[]
-        {
-            "read",
-            "write",
-            "delete",
-            "query"
-        };
-
-        foreach (var permission in permissions)
-        {
-            var rule = new SecurityRule
-            {
-                Id = Guid.NewGuid(),
-                CollectionId = collection.Id,
-                Permission = permission,
-                CanRead = true,
-                CanWrite = true,
-                CanDelete = true,
-                CanQuery = true,
-                IsActive = true
-            };
-
-            _dbContext.SecurityRules.Add(rule);
-        }
-
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new CollectionResponse(
-    collection.Id,
-    collection.ApplicationId,
-    collection.Name,
-    collection.Description,
-    collection.IsActive,
-    collection.CreatedAt,
-    collection.UpdatedAt);
+            collection.Id,
+            collection.ProjectId,
+            collection.Name,
+            collection.Description,
+            collection.IsActive,
+            collection.CreatedAt,
+            collection.UpdatedAt);
+    }
+
+    private static string NormalizeName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException(
+                "Collection name is required.",
+                nameof(value));
+        }
+
+        var normalized = value.Trim();
+        if (normalized.Length > MaximumNameLength ||
+            normalized.Any(char.IsControl))
+        {
+            throw new ArgumentException(
+                $"Collection name cannot exceed {MaximumNameLength} characters or contain control characters.",
+                nameof(value));
+        }
+
+        return normalized;
+    }
+
+    private static string NormalizeDescription(string? value)
+    {
+        var normalized = value?.Trim() ?? string.Empty;
+        if (normalized.Length > MaximumDescriptionLength)
+        {
+            throw new ArgumentException(
+                $"Collection description cannot exceed {MaximumDescriptionLength} characters.",
+                nameof(value));
+        }
+
+        return normalized;
     }
 
     private static string GenerateCode(string name)
     {
-        var code = new string(
-            name
-                .ToLowerInvariant()
-                .Select(c => char.IsLetterOrDigit(c) ? c : '_')
-                .ToArray());
+        var characters = name
+            .ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) ? character : '_')
+            .ToArray();
 
-        while (code.Contains("__"))
-            code = code.Replace("__", "_");
+        var code = new string(characters);
+        while (code.Contains("__", StringComparison.Ordinal))
+        {
+            code = code.Replace("__", "_", StringComparison.Ordinal);
+        }
 
         return code.Trim('_');
     }

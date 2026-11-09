@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
@@ -25,35 +26,48 @@ public sealed class CreateProjectCommandHandler
         CancellationToken cancellationToken)
     {
         if (!_currentDeveloper.IsAuthenticated)
+        {
             throw new UnauthorizedAccessException(
                 "Authenticated developer is required.");
+        }
 
         var developerId = _currentDeveloper.DeveloperId;
-
-        var normalizedCode = request.Code.Trim().ToLowerInvariant();
+        var name = request.Name.Trim();
+        var code = request.Code.Trim().ToLowerInvariant();
 
         var exists = await _dbContext.Projects
             .AnyAsync(
-                x => x.DeveloperId == developerId &&
-                     x.Code == normalizedCode,
+                x => x.DeveloperId == developerId && x.Code == code,
                 cancellationToken);
 
         if (exists)
+        {
             throw new InvalidOperationException(
                 "Project code already exists.");
+        }
 
         var project = new PlatformProject
         {
             DeveloperId = developerId,
-            Name = request.Name.Trim(),
-            Code = normalizedCode,
+            Name = name,
+            Code = code,
             Description = string.IsNullOrWhiteSpace(request.Description)
                 ? null
                 : request.Description.Trim(),
             IsActive = true
         };
 
+        var sdkConfiguration = new ProjectSdkConfiguration
+        {
+            Project = project,
+            ProjectNumber = GenerateProjectNumber(),
+            PublicKey = GeneratePublicKey(),
+            ConfigurationVersion = "1",
+            IsActive = true
+        };
+
         _dbContext.Projects.Add(project);
+        _dbContext.ProjectSdkConfigurations.Add(sdkConfiguration);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -67,5 +81,20 @@ public sealed class CreateProjectCommandHandler
             project.CreatedAt,
             project.UpdatedAt,
             0);
+    }
+
+    private static string GenerateProjectNumber()
+    {
+        return RandomNumberGenerator
+            .GetInt32(1_000_000_000, 2_000_000_000)
+            .ToString();
+    }
+
+    private static string GeneratePublicKey()
+    {
+        Span<byte> bytes = stackalloc byte[32];
+        RandomNumberGenerator.Fill(bytes);
+
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 }

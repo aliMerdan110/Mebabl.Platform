@@ -22,20 +22,44 @@ public sealed class UpdateChannelCommandHandler
         UpdateChannelCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated application credentials are required.");
+        }
+
+        if (request.Id == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid channel ID is required.",
+                nameof(request.Id));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException(
+                "Channel name is required.",
+                nameof(request.Name));
+        }
 
         var channel = await _context.Channels
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.Id &&
-                    x.ApplicationId == _currentApplication.ApplicationId,
+                    x.ApplicationId == applicationId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (channel is null)
-            throw new Exception("Channel not found.");
+        {
+            throw new KeyNotFoundException(
+                "Channel not found in this application.");
+        }
 
-        channel.Name = request.Name;
+        channel.Name = request.Name.Trim();
         channel.IsActive = request.IsActive;
 
         await _context.SaveChangesAsync(cancellationToken);

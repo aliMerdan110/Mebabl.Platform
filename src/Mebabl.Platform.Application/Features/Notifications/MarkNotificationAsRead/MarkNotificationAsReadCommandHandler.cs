@@ -1,3 +1,4 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
@@ -22,23 +23,43 @@ public sealed class MarkNotificationAsReadCommandHandler
         MarkNotificationAsReadCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
 
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated application credentials are required.");
+        }
+
+        if (request.Id == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid notification ID is required.",
+                nameof(request.Id));
+        }
+
+        // Only locate notifications belonging to this application
+        // and exclude notifications that have already been deleted.
         var notification = await _context.Notifications
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.Id &&
-                    x.ApplicationId ==
-                        _currentApplication.ApplicationId,
+                    x.ApplicationId == applicationId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (notification is null)
+        {
             throw new KeyNotFoundException(
-                "Notification not found.");
+                "Notification not found in this application.");
+        }
 
+        // Keep the operation idempotent.
         if (notification.IsRead)
+        {
             return;
+        }
 
         notification.IsRead = true;
         notification.ReadAt = DateTime.UtcNow;

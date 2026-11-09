@@ -2,15 +2,14 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Common.Security;
 using Mebabl.Platform.Application.Services.Password;
 using Mebabl.Platform.Application.Services.PasswordReset;
 
 namespace Mebabl.Platform.Application.Features.Developers.ResetPassword;
 
 public sealed class ResetPasswordCommandHandler
-    : IRequestHandler<
-        ResetPasswordCommand,
-        ResetPasswordResponse>
+    : IRequestHandler<ResetPasswordCommand, ResetPasswordResponse>
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly IPasswordHasher _passwordHasher;
@@ -30,8 +29,8 @@ public sealed class ResetPasswordCommandHandler
         ResetPasswordCommand request,
         CancellationToken cancellationToken)
     {
-        var tokenHash =
-            _tokenService.HashToken(request.Token);
+        var now = DateTime.UtcNow;
+        var tokenHash = _tokenService.HashToken(request.Token);
 
         var resetToken =
             await _dbContext.DeveloperPasswordResetTokens
@@ -40,10 +39,9 @@ public sealed class ResetPasswordCommandHandler
                     x =>
                         x.TokenHash == tokenHash &&
                         x.UsedAt == null &&
-                        x.ExpiresAt > DateTime.UtcNow,
+                        x.ExpiresAt > now,
                     cancellationToken);
 
-        // Token غير صالح أو منتهي أو مستخدم سابقًا
         if (resetToken is null)
         {
             throw new PasswordResetTokenInvalidException();
@@ -51,20 +49,21 @@ public sealed class ResetPasswordCommandHandler
 
         var developer = resetToken.Developer;
 
-        // الحساب غير فعال
-        if (!developer.IsActive)
+        if (!developer.IsActive || developer.IsDeleted)
         {
             throw new DeveloperAccountInactiveException();
         }
 
-        // تغيير كلمة المرور
+        // Update the developer password.
         developer.PasswordHash =
             _passwordHasher.Hash(request.NewPassword);
 
-        // استهلاك Reset Token الحالي
-        resetToken.UsedAt = DateTime.UtcNow;
+        developer.UpdatedAt = now;
 
-        // إلغاء جميع Reset Tokens الأخرى
+        // Consume the reset token.
+        resetToken.UsedAt = now;
+
+        // Invalidate other outstanding password-reset tokens.
         var otherResetTokens =
             await _dbContext.DeveloperPasswordResetTokens
                 .Where(x =>
@@ -75,35 +74,42 @@ public sealed class ResetPasswordCommandHandler
 
         foreach (var token in otherResetTokens)
         {
-            token.UsedAt = DateTime.UtcNow;
+            token.UsedAt = now;
         }
 
-        // إلغاء جميع Refresh Tokens النشطة
+        // Load active refresh tokens and any legacy tokens
+        // that still store the original plaintext value.
         var refreshTokens =
             await _dbContext.DeveloperRefreshTokens
                 .Where(x =>
                     x.DeveloperId == developer.Id &&
-                    x.RevokedAt == null &&
-                    x.ExpiresAt > DateTime.UtcNow)
+                    (x.RevokedAt == null || x.Token != null))
                 .ToListAsync(cancellationToken);
 
         foreach (var refreshToken in refreshTokens)
         {
-            refreshToken.RevokedAt = DateTime.UtcNow;
+            // Preserve the hash before removing a legacy plaintext token.
+            if (refreshToken.TokenHash is null &&
+                !string.IsNullOrWhiteSpace(refreshToken.Token))
+            {
+                refreshToken.TokenHash =
+                    RefreshTokenHashing.Hash(refreshToken.Token);
+            }
+
+            refreshToken.Token = null;
+            refreshToken.RevokedAt ??= now;
         }
 
-        await _dbContext.SaveChangesAsync(
-            cancellationToken);
+        // Save all password-reset and session-revocation changes together.
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new ResetPasswordResponse(
             "Password has been reset successfully.");
     }
 }
 
-
-// Reset Token غير صالح / منتهي / مستخدم سابقًا
-public sealed class PasswordResetTokenInvalidException
-    : Exception
+// Invalid, expired, or previously used reset token.
+public sealed class PasswordResetTokenInvalidException : Exception
 {
     public PasswordResetTokenInvalidException()
         : base("The password reset token is invalid or has expired.")
@@ -111,10 +117,8 @@ public sealed class PasswordResetTokenInvalidException
     }
 }
 
-
-// حساب Developer غير فعال
-public sealed class DeveloperAccountInactiveException
-    : Exception
+// Inactive or deleted developer account.
+public sealed class DeveloperAccountInactiveException : Exception
 {
     public DeveloperAccountInactiveException()
         : base("The developer account is inactive.")

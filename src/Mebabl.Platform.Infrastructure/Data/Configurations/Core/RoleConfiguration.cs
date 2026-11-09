@@ -4,16 +4,16 @@ using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Infrastructure.Data.Configurations.Core;
 
-public sealed class RoleConfiguration
-    : IEntityTypeConfiguration<Role>
+public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
 {
-    public void Configure(
-        EntityTypeBuilder<Role> builder)
+    public void Configure(EntityTypeBuilder<Role> builder)
     {
-        // يضمن تفرد الأدوار داخل كل تطبيق.
         builder.ToTable("Roles");
 
         builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.ApplicationId)
+            .IsRequired();
 
         builder.Property(x => x.Name)
             .IsRequired()
@@ -27,22 +27,34 @@ public sealed class RoleConfiguration
             .IsRequired()
             .HasMaxLength(500);
 
+        builder.Property(x => x.IsActive)
+            .IsRequired();
+
+        builder.Property(x => x.CreatedAt)
+            .IsRequired();
+
         builder.HasIndex(x => new
         {
             x.ApplicationId,
             x.Code
-        })
-        .IsUnique();
-
-        // builder.HasOne(x => x.Application)
-        //     .WithMany()
-        //     .HasForeignKey(x => x.ApplicationId)
-        //     .OnDelete(DeleteBehavior.Cascade);
+        }).IsUnique();
 
         builder.HasOne(x => x.Application)
-    .WithMany(x => x.Roles)
-    .HasForeignKey(x => x.ApplicationId)
-    .OnDelete(DeleteBehavior.Cascade);
-    }
+            .WithMany(x => x.Roles)
+            .HasForeignKey(x => x.ApplicationId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasMany(x => x.UserRoles)
+            .WithOne(x => x.Role)
+            .HasForeignKey(x => x.RoleId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(x => x.RolePermissions)
+            .WithOne(x => x.Role)
+            .HasForeignKey(x => x.RoleId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+    }
 }

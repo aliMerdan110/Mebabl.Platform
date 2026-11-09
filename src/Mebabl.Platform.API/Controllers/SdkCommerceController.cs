@@ -1,7 +1,7 @@
-
-
 using MediatR;
+
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 using Mebabl.Platform.Application.Features.Commerce.Products.CreateProduct;
@@ -23,7 +23,7 @@ namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
 [Route("api/sdk/commerce")]
-[Authorize(Policy = "Application")]
+[EnableCors("MebablSdk")]
 public sealed class SdkCommerceController : ControllerBase
 {
     private readonly ISender _sender;
@@ -34,17 +34,17 @@ public sealed class SdkCommerceController : ControllerBase
     }
 
     [HttpPost("products")]
+    [Authorize(Policy = "Application")]
     public async Task<IActionResult> CreateProduct(
         [FromBody] CreateProductCommand command,
         CancellationToken cancellationToken)
     {
         var id = await _sender.Send(command, cancellationToken);
-
         return Ok(new { id });
     }
 
     [HttpGet("products/{productId:guid}")]
-    [AllowAnonymous]
+    [Authorize(Policy = "ApplicationCatalogRead")]
     public async Task<IActionResult> GetProduct(
         Guid productId,
         CancellationToken cancellationToken)
@@ -53,18 +53,24 @@ public sealed class SdkCommerceController : ControllerBase
             new GetProductQuery(productId),
             cancellationToken);
 
-        return result is null
-            ? NotFound()
-            : Ok(result);
+        return result is null ? NotFound() : Ok(result);
     }
 
     [HttpGet("products")]
-    [AllowAnonymous]
+    [Authorize(Policy = "ApplicationCatalogRead")]
     public async Task<IActionResult> ListProducts(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
+        if (page < 1 || pageSize < 1 || pageSize > 100)
+        {
+            return BadRequest(new
+            {
+                error = "Page must be positive and pageSize must be between 1 and 100."
+            });
+        }
+
         var result = await _sender.Send(
             new ListProductsQuery(page, pageSize),
             cancellationToken);
@@ -73,6 +79,7 @@ public sealed class SdkCommerceController : ControllerBase
     }
 
     [HttpPut("products/{productId:guid}")]
+    [Authorize(Policy = "Application")]
     public async Task<IActionResult> UpdateProduct(
         Guid productId,
         [FromBody] UpdateProductRequest request,
@@ -93,6 +100,7 @@ public sealed class SdkCommerceController : ControllerBase
     }
 
     [HttpDelete("products/{productId:guid}")]
+    [Authorize(Policy = "Application")]
     public async Task<IActionResult> DeleteProduct(
         Guid productId,
         CancellationToken cancellationToken)
@@ -105,6 +113,7 @@ public sealed class SdkCommerceController : ControllerBase
     }
 
     [HttpGet("cart")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> GetCart(
         CancellationToken cancellationToken)
     {
@@ -114,16 +123,17 @@ public sealed class SdkCommerceController : ControllerBase
     }
 
     [HttpPost("cart/items")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> AddCartItem(
         [FromBody] AddCartItemCommand command,
         CancellationToken cancellationToken)
     {
         var id = await _sender.Send(command, cancellationToken);
-
         return Ok(new { id });
     }
 
     [HttpPut("cart/items/{cartItemId:guid}")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> UpdateCartItem(
         Guid cartItemId,
         [FromBody] UpdateCartItemRequest request,
@@ -139,6 +149,7 @@ public sealed class SdkCommerceController : ControllerBase
     }
 
     [HttpDelete("cart/items/{cartItemId:guid}")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> RemoveCartItem(
         Guid cartItemId,
         CancellationToken cancellationToken)
@@ -151,6 +162,7 @@ public sealed class SdkCommerceController : ControllerBase
     }
 
     [HttpPost("orders")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> CreateOrder(
         CancellationToken cancellationToken)
     {
@@ -162,6 +174,7 @@ public sealed class SdkCommerceController : ControllerBase
     }
 
     [HttpGet("orders/{orderId:guid}")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> GetOrder(
         Guid orderId,
         CancellationToken cancellationToken)
@@ -170,17 +183,24 @@ public sealed class SdkCommerceController : ControllerBase
             new GetOrderQuery(orderId),
             cancellationToken);
 
-        return result is null
-            ? NotFound()
-            : Ok(result);
+        return result is null ? NotFound() : Ok(result);
     }
 
     [HttpGet("orders")]
+    [Authorize(Policy = "ApplicationUser")]
     public async Task<IActionResult> ListOrders(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
+        if (page < 1 || pageSize < 1 || pageSize > 100)
+        {
+            return BadRequest(new
+            {
+                error = "Page must be positive and pageSize must be between 1 and 100."
+            });
+        }
+
         var result = await _sender.Send(
             new ListOrdersQuery(page, pageSize),
             cancellationToken);
@@ -196,6 +216,5 @@ public sealed class SdkCommerceController : ControllerBase
         int StockQuantity,
         bool IsActive);
 
-    public sealed record UpdateCartItemRequest(
-        int Quantity);
+    public sealed record UpdateCartItemRequest(int Quantity);
 }

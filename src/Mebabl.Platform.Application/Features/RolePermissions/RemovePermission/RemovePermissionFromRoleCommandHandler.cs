@@ -22,18 +22,51 @@ public sealed class RemovePermissionFromRoleCommandHandler
         RemovePermissionFromRoleCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated application is required.");
+        }
+
+        if (request.RoleId == Guid.Empty ||
+            request.PermissionId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Valid role and permission IDs are required.");
+        }
+
+        var roleExists = await _dbContext.Roles
+            .AnyAsync(
+                x => x.Id == request.RoleId &&
+                     x.ApplicationId == applicationId,
+                cancellationToken);
+
+        if (!roleExists)
+            throw new KeyNotFoundException("Role not found.");
+
+        var permissionExists = await _dbContext.Permissions
+            .AnyAsync(
+                x => x.Id == request.PermissionId &&
+                     x.ApplicationId == applicationId,
+                cancellationToken);
+
+        if (!permissionExists)
+            throw new KeyNotFoundException("Permission not found.");
 
         var rolePermission = await _dbContext.RolePermissions
             .FirstOrDefaultAsync(
-                x =>
-                    x.RoleId == request.RoleId &&
-                    x.PermissionId == request.PermissionId,
+                x => x.RoleId == request.RoleId &&
+                     x.PermissionId == request.PermissionId,
                 cancellationToken);
 
         if (rolePermission is null)
-            throw new Exception("Permission is not assigned to this role.");
+        {
+            throw new InvalidOperationException(
+                "Permission is not assigned to this role.");
+        }
 
         _dbContext.RolePermissions.Remove(rolePermission);
 

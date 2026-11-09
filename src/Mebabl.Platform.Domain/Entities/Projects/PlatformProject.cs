@@ -1,6 +1,6 @@
-
 using Mebabl.Platform.Domain.Common.Entities;
 using Mebabl.Platform.Domain.Entities.Identity;
+
 
 namespace Mebabl.Platform.Domain.Entities.Projects;
 
@@ -18,10 +18,11 @@ public sealed class PlatformProject : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
-    public ICollection<PlatformApplication> Applications { get; set; }
-        = new List<PlatformApplication>();
+    public ICollection<ProjectPlatform> Platforms { get; set; }
+        = new List<ProjectPlatform>();
 
     public ProjectSdkConfiguration? SdkConfiguration { get; set; }
 
-    
+    public ICollection<PlatformApplication> Applications { get; set; }
+    = new List<PlatformApplication>();
 }

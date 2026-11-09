@@ -1,16 +1,17 @@
+
+using System.Security.Cryptography;
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Services.Password;
 using Mebabl.Platform.Domain.Entities.Identity;
-using System.Security.Cryptography;
 
 namespace Mebabl.Platform.Application.Features.Applications.Credentials.CreateCredential;
 
 public sealed class CreateApplicationCredentialCommandHandler
-    : IRequestHandler<
-        CreateApplicationCredentialCommand,
-        CreateApplicationCredentialResponse>
+    : IRequestHandler<CreateApplicationCredentialCommand, CreateApplicationCredentialResponse>
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentDeveloper _currentDeveloper;
@@ -31,17 +32,19 @@ public sealed class CreateApplicationCredentialCommandHandler
         CancellationToken cancellationToken)
     {
         if (!_currentDeveloper.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+            throw new UnauthorizedAccessException(
+                "Authenticated developer is required.");
 
         var application = await _dbContext.Applications
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.ApplicationId &&
-                    x.DeveloperId == _currentDeveloper.DeveloperId,
+                    x.Project.DeveloperId == _currentDeveloper.DeveloperId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (application is null)
-            throw new Exception("Application not found.");
+            throw new KeyNotFoundException("Application not found.");
 
         var apiKey = GenerateKey();
         var apiSecret = GenerateKey();
@@ -64,9 +67,6 @@ public sealed class CreateApplicationCredentialCommandHandler
             apiSecret);
     }
 
-    private static string GenerateKey()
-    {
-        return Convert.ToBase64String(
-            RandomNumberGenerator.GetBytes(32));
-    }
+    private static string GenerateKey() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 }

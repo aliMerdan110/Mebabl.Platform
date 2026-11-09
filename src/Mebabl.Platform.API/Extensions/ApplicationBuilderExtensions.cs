@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Mebabl.Platform.API.Middlewares;
 
 namespace Mebabl.Platform.API.Extensions;
@@ -19,11 +20,12 @@ public static class ApplicationBuilderExtensions
             app.UseHttpsRedirection();
         }
 
-        // يجب أن يأتي قبل CORS حتى يستطيع CORS معرفة الـ endpoint المطلوب
         app.UseRouting();
 
-        // يعالج طلبات OPTIONS قبل المصادقة
-        app.UseCors("MebablConsole");
+        app.UseCors();
+
+        // يجب أن يأتي بعد UseRouting لتطبيق سياسات المسارات.
+        app.UseRateLimiter();
 
         app.UseAuthentication();
         app.UseAuthorization();

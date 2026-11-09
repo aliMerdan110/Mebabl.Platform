@@ -1,6 +1,6 @@
-
 using System.Net;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Features.Developers.ResetPassword;
 
 namespace Mebabl.Platform.API.Middlewares;
@@ -26,15 +26,15 @@ public sealed class ExceptionMiddleware
         }
         catch (Exception exception)
         {
-            _logger.LogError(
-                exception,
-                exception.Message);
-
-            context.Response.ContentType =
-                "application/json";
+            if (context.Response.HasStarted)
+                throw;
 
             var statusCode = exception switch
             {
+                Mebabl.Platform.Application.Features.SdkAuth.ResetPassword
+                    .PasswordResetTokenInvalidException =>
+                    HttpStatusCode.BadRequest,
+
                 PasswordResetTokenInvalidException =>
                     HttpStatusCode.Unauthorized,
 
@@ -44,33 +44,63 @@ public sealed class ExceptionMiddleware
                 UnauthorizedAccessException =>
                     HttpStatusCode.Unauthorized,
 
+                KeyNotFoundException =>
+                    HttpStatusCode.NotFound,
+
                 ArgumentException =>
                     HttpStatusCode.BadRequest,
 
-                KeyNotFoundException =>
-                    HttpStatusCode.NotFound,
+                InvalidOperationException =>
+                    HttpStatusCode.Conflict,
+
+                DbUpdateException =>
+                    HttpStatusCode.Conflict,
 
                 _ =>
                     HttpStatusCode.InternalServerError
             };
 
-            context.Response.StatusCode =
-                (int)statusCode;
+            if (exception is DbUpdateException ||
+                statusCode == HttpStatusCode.InternalServerError)
+            {
+                _logger.LogError(
+                    exception,
+                    "Unhandled exception for {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Request rejected with status {StatusCode} for {Method} {Path}: {Message}",
+                    (int)statusCode,
+                    context.Request.Method,
+                    context.Request.Path,
+                    exception.Message);
+            }
+
+            context.Response.Clear();
+            context.Response.StatusCode = (int)statusCode;
+            context.Response.ContentType = "application/json";
+
+            var responseMessage = exception switch
+            {
+                Mebabl.Platform.Application.Features.SdkAuth.ResetPassword
+                    .PasswordResetTokenInvalidException =>
+                    "The password reset link is invalid or has expired.",
+
+                _ when exception is not DbUpdateException &&
+                       statusCode != HttpStatusCode.InternalServerError =>
+                    exception.Message,
+
+                _ =>
+                    "An unexpected error has occurred."
+            };
 
             var response = new
             {
                 success = false,
-
-                message = exception is
-                    PasswordResetTokenInvalidException
-                        or DeveloperAccountInactiveException
-                        or UnauthorizedAccessException
-                    ? exception.Message
-                    : statusCode ==
-                        HttpStatusCode.InternalServerError
-                        ? "An unexpected error has occurred."
-                        : exception.Message,
-
+                message = responseMessage,
                 statusCode = context.Response.StatusCode
             };
 

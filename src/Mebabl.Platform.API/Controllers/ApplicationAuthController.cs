@@ -2,10 +2,13 @@ using MediatR;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 using Mebabl.Platform.Application.Features.ApplicationAuthentication.Login;
 using Mebabl.Platform.Application.Features.ApplicationAuthentication.Providers;
 using Mebabl.Platform.Application.Features.Applications.Users.CreateApplicationUser;
+using Mebabl.Platform.Application.Features.ApplicationAuthentication.TrustedLogin;
+
 
 namespace Mebabl.Platform.API.Controllers;
 
@@ -13,9 +16,31 @@ namespace Mebabl.Platform.API.Controllers;
 [Route("api")]
 public sealed class ApplicationAuthController : BaseApiController
 {
-    // يفصل بين مصادقة التطبيق وإدارة إعدادات ومستخدمي التطبيق.
+
+
+  [AllowAnonymous]
+[EnableRateLimiting("ApplicationServerToken")]
+[HttpPost("application-auth/server-token")]
+public async Task<IActionResult> ServerToken(
+    [FromBody] ApplicationServerLoginCommand command,
+    CancellationToken cancellationToken)
+{
+    var result = await Sender.Send(command, cancellationToken);
+    return Ok(result);
+}
+
+
+    /// <summary>
+    /// Issues a short-lived public application token.
+    /// ApiKey is public and must never grant privileged application access.
+    /// </summary>
     [AllowAnonymous]
+    [EnableRateLimiting("ApplicationToken")]
     [HttpPost("application-auth/token")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Token(
         [FromBody] ApplicationLoginCommand command,
         CancellationToken cancellationToken)
@@ -61,8 +86,7 @@ public sealed class ApplicationAuthController : BaseApiController
     }
 
     [Authorize(Policy = "Developer")]
-    [HttpPost(
-        "applications/{applicationId:guid}/users")]
+    [HttpPost("applications/{applicationId:guid}/users")]
     public async Task<IActionResult> CreateUser(
         Guid applicationId,
         [FromBody] CreateApplicationUserRequest request,

@@ -9,7 +9,7 @@ using Mebabl.Platform.Application.Features.UserRoles.GetUserRoles;
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "Application")]
 [Route("api/users/{userId:guid}/roles")]
 public sealed class UserRolesController : BaseApiController
 {

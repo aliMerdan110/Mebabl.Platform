@@ -1,6 +1,8 @@
+
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 
 namespace Mebabl.Platform.Application.Features.Applications.MobileAppLinks;
@@ -20,23 +22,13 @@ public sealed class UpdateMobileAppLinkCommandValidator
 {
     public UpdateMobileAppLinkCommandValidator()
     {
-        RuleFor(x => x.ApplicationId)
-            .NotEmpty();
+        RuleFor(x => x.ApplicationId).NotEmpty();
+        RuleFor(x => x.Id).NotEmpty();
 
-        RuleFor(x => x.Id)
-            .NotEmpty();
-
-        RuleFor(x => x.AndroidPackageName)
-            .MaximumLength(255);
-
-        RuleFor(x => x.AndroidSha256CertificateFingerprint)
-            .MaximumLength(128);
-
-        RuleFor(x => x.IosBundleId)
-            .MaximumLength(255);
-
-        RuleFor(x => x.IosTeamId)
-            .MaximumLength(64);
+        RuleFor(x => x.AndroidPackageName).MaximumLength(255);
+        RuleFor(x => x.AndroidSha256CertificateFingerprint).MaximumLength(128);
+        RuleFor(x => x.IosBundleId).MaximumLength(255);
+        RuleFor(x => x.IosTeamId).MaximumLength(64);
     }
 }
 
@@ -58,17 +50,21 @@ public sealed class UpdateMobileAppLinkCommandHandler
         UpdateMobileAppLinkCommand request,
         CancellationToken cancellationToken)
     {
-        var application = await _db.Applications
+        if (!_currentDeveloper.IsAuthenticated)
+            throw new UnauthorizedAccessException(
+                "Authenticated developer is required.");
+
+        var applicationExists = await _db.Applications
             .AsNoTracking()
-            .FirstOrDefaultAsync(
+            .AnyAsync(
                 x =>
                     x.Id == request.ApplicationId &&
-                    x.DeveloperId == _currentDeveloper.DeveloperId,
+                    x.Project.DeveloperId == _currentDeveloper.DeveloperId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
-        if (application is null)
-            throw new KeyNotFoundException(
-                "Application not found.");
+        if (!applicationExists)
+            throw new KeyNotFoundException("Application not found.");
 
         var entity = await _db.ApplicationMobileAppLinks
             .FirstOrDefaultAsync(
@@ -78,24 +74,19 @@ public sealed class UpdateMobileAppLinkCommandHandler
                 cancellationToken);
 
         if (entity is null)
-            throw new KeyNotFoundException(
-                "Mobile app link not found.");
+            throw new KeyNotFoundException("Mobile app link not found.");
 
-        entity.AndroidPackageName =
-            request.AndroidPackageName?.Trim();
-
+        entity.AndroidPackageName = Normalize(request.AndroidPackageName);
         entity.AndroidSha256CertificateFingerprint =
-            request.AndroidSha256CertificateFingerprint?.Trim();
-
-        entity.IosBundleId =
-            request.IosBundleId?.Trim();
-
-        entity.IosTeamId =
-            request.IosTeamId?.Trim();
-
+            Normalize(request.AndroidSha256CertificateFingerprint);
+        entity.IosBundleId = Normalize(request.IosBundleId);
+        entity.IosTeamId = Normalize(request.IosTeamId);
         entity.IsActive = request.IsActive;
         entity.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(cancellationToken);
     }
+
+    private static string? Normalize(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

@@ -1,3 +1,4 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
@@ -22,19 +23,36 @@ public sealed class GetChannelByIdQueryHandler
         GetChannelByIdQuery request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated application credentials are required.");
+        }
+
+        if (request.Id == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid channel ID is required.",
+                nameof(request.Id));
+        }
 
         var channel = await _context.Channels
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.Id &&
-                    x.ApplicationId == _currentApplication.ApplicationId,
+                    x.ApplicationId == applicationId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (channel is null)
-            throw new Exception("Channel not found.");
+        {
+            throw new KeyNotFoundException(
+                "Channel not found in this application.");
+        }
 
         return new GetChannelByIdResponse(
             channel.Id,

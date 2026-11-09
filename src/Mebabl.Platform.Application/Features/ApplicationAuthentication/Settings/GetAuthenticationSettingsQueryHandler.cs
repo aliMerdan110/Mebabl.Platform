@@ -1,13 +1,13 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 
 namespace Mebabl.Platform.Application.Features.ApplicationAuthentication.Settings;
 
 public sealed class GetAuthenticationSettingsQueryHandler
-    : IRequestHandler<
-        GetAuthenticationSettingsQuery,
-        AuthenticationSettingsResponse>
+    : IRequestHandler<GetAuthenticationSettingsQuery, AuthenticationSettingsResponse>
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentDeveloper _currentDeveloper;
@@ -25,40 +25,29 @@ public sealed class GetAuthenticationSettingsQueryHandler
         CancellationToken cancellationToken)
     {
         if (!_currentDeveloper.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+            throw new UnauthorizedAccessException(
+                "Authenticated developer is required.");
 
         var application = await _db.Applications
             .AsNoTracking()
-            .FirstOrDefaultAsync(
-                x => x.Id == request.ApplicationId,
-                cancellationToken);
+            .Where(x =>
+                x.Id == request.ApplicationId &&
+                x.Project.DeveloperId == _currentDeveloper.DeveloperId)
+            .Select(x => new { x.Id })
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (application is null)
-        {
-            throw new KeyNotFoundException(
-                "Application not found.");
-        }
+            throw new KeyNotFoundException("Application not found.");
 
-        if (application.DeveloperId !=
-            _currentDeveloper.DeveloperId)
-        {
-            throw new UnauthorizedAccessException(
-                "You do not have access to this application.");
-        }
-
-        var settings =
-            await _db.ApplicationAuthenticationSettings
-                .AsNoTracking()
-                .FirstOrDefaultAsync(
-                    x => x.ApplicationId ==
-                         request.ApplicationId,
-                    cancellationToken);
+        var settings = await _db.ApplicationAuthenticationSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.ApplicationId == application.Id,
+                cancellationToken);
 
         if (settings is null)
-        {
             throw new KeyNotFoundException(
                 "Authentication settings not found.");
-        }
 
         return new AuthenticationSettingsResponse(
             settings.Id,

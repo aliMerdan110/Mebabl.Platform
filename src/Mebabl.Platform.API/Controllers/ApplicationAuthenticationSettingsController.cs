@@ -1,12 +1,15 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Mebabl.Platform.Application.Features.ApplicationAuthentication.Settings;
+using Microsoft.AspNetCore.Authorization;
+
 
 namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
 [Route("api/applications/{applicationId:guid}/authentication/settings")]
-public class ApplicationAuthenticationSettingsController
+[Authorize(Policy = "Developer")]
+public sealed class ApplicationAuthenticationSettingsController
     : BaseApiController
 {
     [HttpGet]

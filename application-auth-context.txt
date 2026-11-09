@@ -1,0 +1,1074 @@
+﻿
+========== .\src\Mebabl.Platform.Application\Features\ApplicationAuthentication\Login\ApplicationLoginCommandHandler.cs ==========
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Features.ApplicationAuthentication.DTOs;
+using Mebabl.Platform.Application.Services.Jwt;
+using Mebabl.Platform.Application.Services.Password;
+
+namespace Mebabl.Platform.Application.Features.ApplicationAuthentication.Login;
+
+public sealed class ApplicationLoginCommandHandler
+    : IRequestHandler<ApplicationLoginCommand, ApplicationAuthResponse>
+{
+    private readonly IApplicationDbContext _dbContext;
+    private readonly IJwtTokenGenerator _jwt;
+    private readonly IPasswordHasher _passwordHasher;
+
+    public ApplicationLoginCommandHandler(
+        IApplicationDbContext dbContext,
+        IJwtTokenGenerator jwt,
+        IPasswordHasher passwordHasher)
+    {
+        _dbContext = dbContext;
+        _jwt = jwt;
+        _passwordHasher = passwordHasher;
+    }
+
+    public async Task<ApplicationAuthResponse> Handle(
+        ApplicationLoginCommand request,
+        CancellationToken cancellationToken)
+    {
+        // ÙŠØªØ­Ù‚Ù‚ Ù…Ù† Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ù‚Ø¨Ù„ Ø¥ØµØ¯Ø§Ø± JWT.
+        var credential = await _dbContext.ApplicationCredentials
+            .Include(x => x.Application)
+            .FirstOrDefaultAsync(
+                x =>
+                    x.ApiKey == request.ApiKey &&
+                    x.IsActive &&
+                    !x.IsDeleted &&
+                    x.Application.IsActive &&
+                    !x.Application.IsDeleted,
+                cancellationToken);
+
+        if (credential is null)
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid credentials.");
+        }
+
+        var isValid = _passwordHasher.Verify(
+            request.ApiSecret,
+            credential.ApiSecretHash);
+
+        if (!isValid)
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid credentials.");
+        }
+
+        var token = _jwt.GenerateApplicationToken(
+            credential.ApplicationId,
+            credential.Id);
+
+        return new ApplicationAuthResponse(
+            credential.ApplicationId,
+            token);
+    }
+}
+
+========== .\src\Mebabl.Platform.Infrastructure\Authentication\Jwt\JwtTokenGenerator.cs ==========
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+
+using Mebabl.Platform.Application.Services.Jwt;
+
+namespace Mebabl.Platform.Infrastructure.Authentication.Jwt;
+
+public sealed class JwtTokenGenerator : IJwtTokenGenerator
+{
+    private readonly JwtOptions _options;
+
+    public JwtTokenGenerator(
+        IOptions<JwtOptions> options)
+    {
+        _options = options.Value;
+    }
+
+    // Ù…ÙˆÙ„Ù‘Ø¯ Ù…Ø±ÙƒØ²ÙŠ Ù„Ø¬Ù…ÙŠØ¹ Ø±Ù…ÙˆØ² Ø§Ù„Ù‡ÙˆÙŠØ© ÙˆØ§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª ÙÙŠ Ø§Ù„Ù…Ù†ØµØ©.
+    public string GenerateDeveloperToken(
+        Guid developerId)
+    {
+        var claims = new[]
+        {
+            new Claim(
+                "developerId",
+                developerId.ToString()),
+
+            new Claim(
+                "type",
+                "developer")
+        };
+
+        return GenerateToken(
+            claims,
+            TimeSpan.FromMinutes(
+                _options.ExpiryMinutes));
+    }
+
+    public string GenerateApplicationToken(
+        Guid applicationId,
+        Guid credentialId)
+    {
+        var claims = new[]
+        {
+            new Claim(
+                "applicationId",
+                applicationId.ToString()),
+
+            new Claim(
+                "credentialId",
+                credentialId.ToString()),
+
+            new Claim(
+                "type",
+                "application")
+        };
+
+        return GenerateToken(
+            claims,
+            TimeSpan.FromHours(1));
+    }
+
+    public string GenerateAccessToken(
+        Guid accountId,
+        Guid userId,
+        Guid applicationId,
+        IReadOnlyCollection<string> roles,
+        IReadOnlyCollection<string> permissions)
+    {
+        var claims = new List<Claim>
+        {
+            new Claim(
+                "accountId",
+                accountId.ToString()),
+
+            new Claim(
+                "userId",
+                userId.ToString()),
+
+            new Claim(
+                "applicationId",
+                applicationId.ToString()),
+
+            new Claim(
+                "type",
+                "user"),
+
+            new Claim(
+                JwtRegisteredClaimNames.Sub,
+                userId.ToString())
+        };
+
+        foreach (var role in roles)
+        {
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                claims.Add(
+                    new Claim(
+                        ClaimTypes.Role,
+                        role));
+            }
+        }
+
+        foreach (var permission in permissions)
+        {
+            if (!string.IsNullOrWhiteSpace(permission))
+            {
+                claims.Add(
+                    new Claim(
+                        "permission",
+                        permission));
+            }
+        }
+
+        return GenerateToken(
+            claims,
+            TimeSpan.FromMinutes(
+                _options.ExpiryMinutes));
+    }
+
+    public string GenerateRefreshToken()
+    {
+        return Convert.ToBase64String(
+            RandomNumberGenerator.GetBytes(64));
+    }
+
+    private string GenerateToken(
+        IEnumerable<Claim> claims,
+        TimeSpan lifetime)
+    {
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(
+                _options.Secret));
+
+        var credentials = new SigningCredentials(
+            key,
+            SecurityAlgorithms.HmacSha256);
+
+        var now = DateTime.UtcNow;
+
+        var token = new JwtSecurityToken(
+            issuer: _options.Issuer,
+            audience: _options.Audience,
+            claims: claims,
+            notBefore: now,
+            expires: now.Add(lifetime),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler()
+            .WriteToken(token);
+    }
+}
+
+========== .\src\Mebabl.Platform.API\Controllers\SdkAuthController.cs ==========
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Mebabl.Platform.Application.Features.SdkAuth.Login;
+using Mebabl.Platform.Application.Features.SdkAuth.Register;
+using Mebabl.Platform.Application.Features.SdkAuth.Refresh;
+using Mebabl.Platform.Application.Features.SdkAuth.Logout;
+using Mebabl.Platform.Application.Features.SdkAuth.Me;
+using Mebabl.Platform.Application.Features.SdkAuth.ChangePassword;
+using Mebabl.Platform.Application.Features.SdkAuth.ForgotPassword;
+using Mebabl.Platform.Application.Features.SdkAuth.ResetPassword;
+using Mebabl.Platform.Application.Features.SdkAuth.VerifyEmail;
+using Mebabl.Platform.Application.Features.SdkAuth.ResendVerificationEmail;
+
+namespace Mebabl.Platform.API.Controllers;
+
+[ApiController]
+[Route("api/sdk/auth")]
+public sealed class SdkAuthController : BaseApiController
+{
+    [HttpPost("register")]
+    [Authorize(Policy = "Application")]
+    public async Task<IActionResult> Register(
+        RegisterUserCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("login")]
+    [Authorize(Policy = "Application")]
+    public async Task<IActionResult> Login(
+        LoginUserCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(
+        SdkRefreshTokenCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("logout")]
+    [Authorize(Policy = "ApplicationUser")]
+    public async Task<IActionResult> Logout(
+        [FromBody] SdkLogoutCommand command,
+        CancellationToken cancellationToken)
+    {
+        await Sender.Send(
+            command,
+            cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpGet("me")]
+    [Authorize(Policy = "ApplicationUser")]
+    public async Task<IActionResult> Me(
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            new GetCurrentUserQuery(),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("change-password")]
+    [Authorize(Policy = "ApplicationUser")]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] SdkChangePasswordCommand command,
+        CancellationToken cancellationToken)
+    {
+        await Sender.Send(
+            command,
+            cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpPost("forgot-password")]
+    [Authorize(Policy = "Application")]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] SdkForgotPasswordCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] SdkResetPasswordCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("verify-email")]
+    public async Task<IActionResult> VerifyEmail(
+        VerifyEmailCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            command,
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("resend-verification-email")]
+    [Authorize(Policy = "ApplicationUser")]
+    public async Task<IActionResult> ResendVerificationEmail(
+        CancellationToken cancellationToken)
+    {
+        var result = await Sender.Send(
+            new ResendVerificationEmailCommand(),
+            cancellationToken);
+
+        return Ok(result);
+    }
+}
+
+========== .\src\Mebabl.Platform.API\Controllers\SdkCommerceController.cs ==========
+
+
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+using Mebabl.Platform.Application.Features.Commerce.Products.CreateProduct;
+using Mebabl.Platform.Application.Features.Commerce.Products.GetProduct;
+using Mebabl.Platform.Application.Features.Commerce.Products.ListProducts;
+using Mebabl.Platform.Application.Features.Commerce.Products.UpdateProduct;
+using Mebabl.Platform.Application.Features.Commerce.Products.DeleteProduct;
+
+using Mebabl.Platform.Application.Features.Commerce.Cart.GetCart;
+using Mebabl.Platform.Application.Features.Commerce.Cart.AddCartItem;
+using Mebabl.Platform.Application.Features.Commerce.Cart.UpdateCartItem;
+using Mebabl.Platform.Application.Features.Commerce.Cart.RemoveCartItem;
+
+using Mebabl.Platform.Application.Features.Commerce.Orders.CreateOrder;
+using Mebabl.Platform.Application.Features.Commerce.Orders.GetOrder;
+using Mebabl.Platform.Application.Features.Commerce.Orders.ListOrders;
+
+namespace Mebabl.Platform.API.Controllers;
+
+[ApiController]
+[Route("api/sdk/commerce")]
+[Authorize(Policy = "Application")]
+public sealed class SdkCommerceController : ControllerBase
+{
+    private readonly ISender _sender;
+
+    public SdkCommerceController(ISender sender)
+    {
+        _sender = sender;
+    }
+
+    [HttpPost("products")]
+    public async Task<IActionResult> CreateProduct(
+        [FromBody] CreateProductCommand command,
+        CancellationToken cancellationToken)
+    {
+        var id = await _sender.Send(command, cancellationToken);
+
+        return Ok(new { id });
+    }
+
+    [HttpGet("products/{productId:guid}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetProduct(
+        Guid productId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new GetProductQuery(productId),
+            cancellationToken);
+
+        return result is null
+            ? NotFound()
+            : Ok(result);
+    }
+
+    [HttpGet("products")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ListProducts(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(
+            new ListProductsQuery(page, pageSize),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPut("products/{productId:guid}")]
+    public async Task<IActionResult> UpdateProduct(
+        Guid productId,
+        [FromBody] UpdateProductRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new UpdateProductCommand(
+                productId,
+                request.Name,
+                request.Description,
+                request.Price,
+                request.Currency,
+                request.StockQuantity,
+                request.IsActive),
+            cancellationToken);
+
+        return result ? NoContent() : NotFound();
+    }
+
+    [HttpDelete("products/{productId:guid}")]
+    public async Task<IActionResult> DeleteProduct(
+        Guid productId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new DeleteProductCommand(productId),
+            cancellationToken);
+
+        return result ? NoContent() : NotFound();
+    }
+
+    [HttpGet("cart")]
+    public async Task<IActionResult> GetCart(
+        CancellationToken cancellationToken)
+    {
+        return Ok(await _sender.Send(
+            new GetCartQuery(),
+            cancellationToken));
+    }
+
+    [HttpPost("cart/items")]
+    public async Task<IActionResult> AddCartItem(
+        [FromBody] AddCartItemCommand command,
+        CancellationToken cancellationToken)
+    {
+        var id = await _sender.Send(command, cancellationToken);
+
+        return Ok(new { id });
+    }
+
+    [HttpPut("cart/items/{cartItemId:guid}")]
+    public async Task<IActionResult> UpdateCartItem(
+        Guid cartItemId,
+        [FromBody] UpdateCartItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new UpdateCartItemCommand(
+                cartItemId,
+                request.Quantity),
+            cancellationToken);
+
+        return result ? NoContent() : NotFound();
+    }
+
+    [HttpDelete("cart/items/{cartItemId:guid}")]
+    public async Task<IActionResult> RemoveCartItem(
+        Guid cartItemId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new RemoveCartItemCommand(cartItemId),
+            cancellationToken);
+
+        return result ? NoContent() : NotFound();
+    }
+
+    [HttpPost("orders")]
+    public async Task<IActionResult> CreateOrder(
+        CancellationToken cancellationToken)
+    {
+        var id = await _sender.Send(
+            new CreateOrderCommand(),
+            cancellationToken);
+
+        return Ok(new { id });
+    }
+
+    [HttpGet("orders/{orderId:guid}")]
+    public async Task<IActionResult> GetOrder(
+        Guid orderId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new GetOrderQuery(orderId),
+            cancellationToken);
+
+        return result is null
+            ? NotFound()
+            : Ok(result);
+    }
+
+    [HttpGet("orders")]
+    public async Task<IActionResult> ListOrders(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(
+            new ListOrdersQuery(page, pageSize),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    public sealed record UpdateProductRequest(
+        string Name,
+        string? Description,
+        decimal Price,
+        string Currency,
+        int StockQuantity,
+        bool IsActive);
+
+    public sealed record UpdateCartItemRequest(
+        int Quantity);
+}
+
+========== .\src\Mebabl.Platform.API\Controllers\SdkSocialController.cs ==========
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+using Mebabl.Platform.Application.Features.SdkSocial.Comments.CreateComment;
+using Mebabl.Platform.Application.Features.SdkSocial.Comments.DeleteComment;
+using Mebabl.Platform.Application.Features.SdkSocial.Comments.GetComments;
+using Mebabl.Platform.Application.Features.SdkSocial.Comments.UpdateComment;
+using Mebabl.Platform.Application.Features.SdkSocial.Reposts.CreateRepost;
+using Mebabl.Platform.Application.Features.SdkSocial.Shares.CreateShare;
+using Mebabl.Platform.Application.Features.SdkSocial.PostStats.GetPostStats;
+using Mebabl.Platform.Application.Features.SdkSocial.Reactions.GetReactions;
+using Mebabl.Platform.Application.Features.SdkSocial.Reactions.React;
+using Mebabl.Platform.Application.Features.SdkSocial.Reactions.RemoveReaction;
+
+namespace Mebabl.Platform.API.Controllers;
+
+[ApiController]
+[Authorize(Policy = "Application")]
+[Route("api/sdk/social")]
+public sealed class SdkSocialController : ControllerBase
+{
+    private readonly ISender _sender;
+
+    public SdkSocialController(ISender sender)
+    {
+        _sender = sender;
+    }
+
+    // =========================================================
+    // Reactions
+    // =========================================================
+
+    [HttpPost("posts/{postId:guid}/reactions")]
+    public async Task<IActionResult> React(
+        Guid postId,
+        [FromBody] ReactRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new ReactCommand(
+                postId,
+                request.Type),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpDelete("posts/{postId:guid}/reactions")]
+    public async Task<IActionResult> RemoveReaction(
+        Guid postId,
+        CancellationToken cancellationToken)
+    {
+        await _sender.Send(
+            new RemoveReactionCommand(postId),
+            cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpGet("posts/{postId:guid}/reactions")]
+    public async Task<IActionResult> GetReactions(
+        Guid postId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new GetReactionsQuery(postId),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    // =========================================================
+    // Comments
+    // =========================================================
+
+    [HttpPost("posts/{postId:guid}/comments")]
+    public async Task<IActionResult> CreateComment(
+        Guid postId,
+        [FromBody] CreateCommentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new CreateCommentCommand(
+                postId,
+                request.Text),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpGet("posts/{postId:guid}/comments")]
+    public async Task<IActionResult> GetComments(
+        Guid postId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(
+            new GetCommentsQuery(
+                postId,
+                page,
+                pageSize),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPatch("comments/{commentId:guid}")]
+    public async Task<IActionResult> UpdateComment(
+        Guid commentId,
+        [FromBody] UpdateCommentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new UpdateCommentCommand(
+                commentId,
+                request.Text),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpDelete("comments/{commentId:guid}")]
+    public async Task<IActionResult> DeleteComment(
+        Guid commentId,
+        CancellationToken cancellationToken)
+    {
+        await _sender.Send(
+            new DeleteCommentCommand(commentId),
+            cancellationToken);
+
+        return NoContent();
+    }
+
+    // =========================================================
+    // Shares
+    // =========================================================
+
+    [HttpPost("posts/{postId:guid}/shares")]
+    public async Task<IActionResult> Share(
+        Guid postId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new ShareCommand(postId),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    // =========================================================
+    // Reposts
+    // =========================================================
+
+    [HttpPost("posts/{postId:guid}/reposts")]
+    public async Task<IActionResult> Repost(
+        Guid postId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new RepostCommand(postId),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    // =========================================================
+    // Post Stats
+    // =========================================================
+
+    [HttpGet("posts/stats")]
+    public async Task<IActionResult> GetPostStats(
+        [FromQuery] string postIds,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(postIds))
+            return BadRequest("postIds is required.");
+
+        var ids = postIds
+            .Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries)
+            .Select(id =>
+                Guid.TryParse(id, out var value)
+                    ? value
+                    : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
+
+        if (ids.Length == 0)
+            return BadRequest("No valid post ids were provided.");
+
+        var result = await _sender.Send(
+            new GetPostStatsQuery(ids),
+            cancellationToken);
+
+        return Ok(result);
+    }
+}
+
+public sealed record ReactRequest(
+    string Type);
+
+public sealed record CreateCommentRequest(
+    string Text);
+
+public sealed record UpdateCommentRequest(
+    string Text);
+
+========== .\src\Mebabl.Platform.API\Controllers\SdkStorageController.cs ==========
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Mebabl.Platform.Application.Features.SdkStorage.Content;
+using Mebabl.Platform.Application.Features.SdkStorage.Delete;
+using Mebabl.Platform.Application.Features.SdkStorage.Upload;
+using Mebabl.Platform.Application.Features.SdkStorage.Url;
+
+namespace Mebabl.Platform.API.Controllers;
+
+[ApiController]
+[Route("api/sdk/storage")]
+[Authorize(Policy = "Application")]
+public sealed class SdkStorageController : ControllerBase
+{
+    private readonly ISender _sender;
+
+    public SdkStorageController(ISender sender)
+    {
+        _sender = sender;
+    }
+
+    [HttpPost("upload")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Upload(
+        IFormFile file,
+        [FromForm] string path,
+        [FromForm] bool isPublic = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (file.Length == 0)
+            return BadRequest("File is empty.");
+
+        var applicationId = Guid.Parse(
+            User.FindFirst("applicationId")!.Value);
+
+        var userIdClaim = User.FindFirst("userId")?.Value;
+
+        Guid? userId = Guid.TryParse(userIdClaim, out var parsedUserId)
+            ? parsedUserId
+            : null;
+
+        await using var stream = file.OpenReadStream();
+
+        var result = await _sender.Send(
+            new UploadFileCommand(
+                applicationId,
+                userId,
+                stream,
+                file.FileName,
+                file.ContentType,
+                path,
+                isPublic),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpGet("{fileId:guid}/url")]
+    public async Task<IActionResult> GetUrl(
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var applicationId = Guid.Parse(
+            User.FindFirst("applicationId")!.Value);
+
+        var result = await _sender.Send(
+            new GetFileUrlQuery(
+                applicationId,
+                fileId),
+            cancellationToken);
+
+        return Ok(new { url = result });
+    }
+
+    [HttpGet("{fileId:guid}/content")]
+    public async Task<IActionResult> Content(
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var applicationId = Guid.Parse(
+            User.FindFirst("applicationId")!.Value);
+
+        var result = await _sender.Send(
+            new GetFileContentQuery(
+                applicationId,
+                fileId),
+            cancellationToken);
+
+        return File(
+            result.Content,
+            result.ContentType,
+            result.FileName,
+            enableRangeProcessing: true);
+    }
+
+    [HttpDelete("{fileId:guid}")]
+    public async Task<IActionResult> Delete(
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var applicationId = Guid.Parse(
+            User.FindFirst("applicationId")!.Value);
+
+        await _sender.Send(
+            new DeleteFileCommand(
+                applicationId,
+                fileId),
+            cancellationToken);
+
+        return NoContent();
+    }
+}
+
+========== .\src\Mebabl.Platform.Application\Features\Projects\GetProjectSdkConfiguration\GetProjectSdkConfigurationQueryHandler.cs ==========
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Features.Projects.DTOs;
+
+namespace Mebabl.Platform.Application.Features.Projects.GetProjectSdkConfiguration;
+
+public sealed class GetProjectSdkConfigurationQueryHandler
+    : IRequestHandler<
+        GetProjectSdkConfigurationQuery,
+        ProjectSdkConfigurationDto>
+{
+    private const string ApiBaseUrl = "https://api.mebabl.com";
+
+    private readonly IApplicationDbContext _dbContext;
+    private readonly ICurrentDeveloper _currentDeveloper;
+
+    public GetProjectSdkConfigurationQueryHandler(
+        IApplicationDbContext dbContext,
+        ICurrentDeveloper currentDeveloper)
+    {
+        _dbContext = dbContext;
+        _currentDeveloper = currentDeveloper;
+    }
+
+    public async Task<ProjectSdkConfigurationDto> Handle(
+        GetProjectSdkConfigurationQuery request,
+        CancellationToken cancellationToken)
+    {
+        if (!_currentDeveloper.IsAuthenticated)
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated developer is required.");
+        }
+
+        var developerId = _currentDeveloper.DeveloperId;
+
+        var project = await _dbContext.Projects
+            .AsNoTracking()
+            .Where(x =>
+                x.Id == request.ProjectId &&
+                x.DeveloperId == developerId &&
+                x.IsActive &&
+                !x.IsDeleted)
+            .Select(x => new
+            {
+                x.Id,
+                x.Code,
+                x.Name,
+                SdkConfiguration = x.SdkConfiguration == null
+                    ? null
+                    : new
+                    {
+                        x.SdkConfiguration.ProjectNumber,
+                        x.SdkConfiguration.PublicKey,
+                        x.SdkConfiguration.ConfigurationVersion,
+                        x.SdkConfiguration.IsActive
+                    }
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (project is null)
+        {
+            throw new KeyNotFoundException("Project not found.");
+        }
+
+        var sdkConfiguration = project.SdkConfiguration;
+
+        if (sdkConfiguration is null || !sdkConfiguration.IsActive)
+        {
+            throw new InvalidOperationException(
+                "Active project SDK configuration was not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(sdkConfiguration.ProjectNumber) ||
+            string.IsNullOrWhiteSpace(sdkConfiguration.PublicKey) ||
+            string.IsNullOrWhiteSpace(sdkConfiguration.ConfigurationVersion))
+        {
+            throw new InvalidOperationException(
+                "The project SDK configuration is incomplete.");
+        }
+
+        var clients = await (
+            from platform in _dbContext.ProjectPlatforms.AsNoTracking()
+            where platform.ProjectId == project.Id && platform.IsActive
+
+            join application in _dbContext.Applications.AsNoTracking()
+                on new
+                {
+                    platform.ProjectId,
+                    ProjectPlatformId = platform.Id
+                }
+                equals new
+                {
+                    application.ProjectId,
+                    application.ProjectPlatformId
+                }
+
+            where application.IsActive && !application.IsDeleted
+
+            select new
+            {
+                ApplicationId = application.Id,
+                ApplicationName = application.Name,
+                ApplicationCode = application.Code,
+
+                PlatformId = platform.Id,
+                platform.Platform,
+                platform.Nickname,
+                platform.PackageName,
+                platform.BundleId,
+                platform.Domain,
+
+                ApiKey = _dbContext.ApplicationCredentials
+                    .Where(credential =>
+                        credential.ApplicationId == application.Id &&
+                        credential.IsActive)
+                    .OrderByDescending(credential => credential.CreatedAt)
+                    .Select(credential => credential.ApiKey)
+                    .FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+
+        var clientConfigurations = clients
+            .Where(client =>
+                !string.IsNullOrWhiteSpace(client.ApiKey))
+            .Select(client => new ProjectClientDto
+            {
+                ApplicationName = client.ApplicationName,
+                ApplicationCode = client.ApplicationCode,
+
+                ClientInfo = new ProjectClientInfoDto
+                {
+                    ApplicationId = client.ApplicationId,
+                    PlatformId = client.PlatformId,
+                    Platform = client.Platform,
+                    Nickname = client.Nickname,
+                    PackageName = client.PackageName,
+                    BundleId = client.BundleId,
+                    Domain = client.Domain
+                },
+
+                ApiKey = client.ApiKey!
+            })
+            .ToList();
+
+        return new ProjectSdkConfigurationDto
+        {
+            ProjectInfo = new ProjectInfoDto
+            {
+                ProjectId = project.Id,
+                ProjectCode = project.Code,
+                ProjectName = project.Name,
+                BaseUrl = ApiBaseUrl
+            },
+
+            ProjectNumber = sdkConfiguration.ProjectNumber,
+            PublicKey = sdkConfiguration.PublicKey,
+            ConfigurationVersion =
+                sdkConfiguration.ConfigurationVersion,
+
+            Client = clientConfigurations
+        };
+    }
+}

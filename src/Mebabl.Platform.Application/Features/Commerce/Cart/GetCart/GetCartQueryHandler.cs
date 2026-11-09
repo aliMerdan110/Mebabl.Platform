@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 
 namespace Mebabl.Platform.Application.Features.Commerce.Cart.GetCart;
@@ -25,13 +26,26 @@ public sealed class GetCartQueryHandler
         GetCartQuery request,
         CancellationToken cancellationToken)
     {
+        var applicationId = _currentApplication.ApplicationId;
+        var userId = _currentUser.UserId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            !_currentUser.IsAuthenticated ||
+            applicationId == Guid.Empty ||
+            userId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated application user is required.");
+        }
+
         var cart = await _db.Carts
             .AsNoTracking()
             .Include(x => x.Items)
             .ThenInclude(x => x.Product)
-            .FirstOrDefaultAsync(x =>
-                x.ApplicationId == _currentApplication.ApplicationId &&
-                x.UserId == _currentUser.UserId,
+            .FirstOrDefaultAsync(
+                x =>
+                    x.ApplicationId == applicationId &&
+                    x.UserId == userId,
                 cancellationToken);
 
         if (cart is null)
@@ -43,6 +57,9 @@ public sealed class GetCartQueryHandler
         }
 
         var items = cart.Items
+            .Where(x =>
+                x.Product.ApplicationId == applicationId &&
+                !x.Product.IsDeleted)
             .Select(x => new CartItemDto(
                 x.Id,
                 x.ProductId,

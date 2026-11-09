@@ -1,103 +1,158 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Features.Database.Collections.DTOs;
 
 namespace Mebabl.Platform.Application.Features.Database.Collections.UpdateCollection;
 
-
-
-// تم التعديل 11/9  
+/// <summary>
+/// Updates collection metadata inside the project resolved from the
+/// authenticated application. ProjectId is the resource boundary; the
+/// calling ApplicationId is used only to resolve that trusted project.
+/// </summary>
 public sealed class UpdateCollectionCommandHandler
     : IRequestHandler<UpdateCollectionCommand, CollectionResponse>
 {
+    private const int MaximumNameLength = 100;
+    private const int MaximumDescriptionLength = 500;
+
     private readonly IApplicationDbContext _dbContext;
-    private readonly ICurrentUser _currentUser;
+    private readonly ICurrentApplication _currentApplication;
 
     public UpdateCollectionCommandHandler(
         IApplicationDbContext dbContext,
-        ICurrentUser currentUser)
+        ICurrentApplication currentApplication)
     {
-        _dbContext = dbContext;
-        _currentUser = currentUser;
+        _dbContext = dbContext
+            ?? throw new ArgumentNullException(nameof(dbContext));
+        _currentApplication = currentApplication
+            ?? throw new ArgumentNullException(nameof(currentApplication));
     }
 
     public async Task<CollectionResponse> Handle(
         UpdateCollectionCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentUser.IsAuthenticated ||
-            _currentUser.ApplicationId == Guid.Empty)
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!_currentApplication.IsAuthenticated)
         {
-            throw new UnauthorizedAccessException();
+            throw new UnauthorizedAccessException(
+                "An authenticated trusted application is required.");
         }
 
-        var applicationId = _currentUser.ApplicationId;
-        var name = request.Name.Trim();
+        var applicationId = _currentApplication.ApplicationId;
+        if (applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The authenticated application context is invalid.");
+        }
+
+        if (request.CollectionId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Collection ID is required.",
+                nameof(request.CollectionId));
+        }
+
+        var name = NormalizeName(request.Name);
+        var description = NormalizeDescription(request.Description);
+
+        // Resolve the project from persisted application membership. Never
+        // accept ProjectId from the request or trust a caller-supplied value.
+        var applicationScope = await _dbContext.Applications
+            .AsNoTracking()
+            .Where(application =>
+                application.Id == applicationId &&
+                application.IsActive &&
+                !application.IsDeleted &&
+                application.Project.IsActive &&
+                !application.Project.IsDeleted)
+            .Select(application => new
+            {
+                application.Id,
+                application.ProjectId
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (applicationScope is null ||
+            applicationScope.ProjectId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The application or its project is unavailable.");
+        }
+
+        var projectId = applicationScope.ProjectId;
 
         var collection = await _dbContext.Collections
-            .FirstOrDefaultAsync(
-                x =>
-                    x.Id == request.CollectionId &&
-                    x.ApplicationId == applicationId,
+            .FirstOrDefaultAsync(collection =>
+                    collection.Id == request.CollectionId &&
+                    collection.ProjectId == projectId &&
+                    collection.IsActive &&
+                    !collection.IsDeleted,
                 cancellationToken);
 
         if (collection is null)
-            throw new KeyNotFoundException("Collection not found.");
-
-        var exists = await _dbContext.Collections.AnyAsync(
-            x =>
-                x.Id != request.CollectionId &&
-                x.ApplicationId == applicationId &&
-                x.Name.ToLower() == name.ToLower(),
-            cancellationToken);
-
-        if (exists)
-            throw new InvalidOperationException(
-                "Collection already exists.");
-
-        var code = GenerateCode(name);
-
-        var codeExists = await _dbContext.Collections.AnyAsync(
-            x =>
-                x.Id != request.CollectionId &&
-                x.ApplicationId == applicationId &&
-                x.Code == code,
-            cancellationToken);
-
-        if (codeExists)
         {
-            code = $"{code}_{Guid.NewGuid():N}";
+            // Do not disclose collection identifiers belonging to another project.
+            throw new KeyNotFoundException("Collection not found.");
         }
 
+        if (collection.IsSystem)
+        {
+            throw new InvalidOperationException(
+                "System collections cannot be modified through this operation.");
+        }
+
+        // Code is the stable collection identifier used by SDK paths and
+        // references. Renaming the display name must not silently change it.
         collection.Name = name;
-        collection.Code = code;
-        collection.Description =
-            request.Description?.Trim() ?? string.Empty;
+        collection.Description = description;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new CollectionResponse(
             collection.Id,
-            collection.ApplicationId,
+            collection.ProjectId,
             collection.Name,
             collection.Description,
             collection.IsActive,
             collection.CreatedAt,
-collection.UpdatedAt);
+            collection.UpdatedAt);
     }
 
-    private static string GenerateCode(string name)
+    private static string NormalizeName(string? value)
     {
-        var code = new string(
-            name
-                .ToLowerInvariant()
-                .Select(c => char.IsLetterOrDigit(c) ? c : '_')
-                .ToArray());
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException(
+                "Collection name is required.",
+                nameof(value));
+        }
 
-        while (code.Contains("__"))
-            code = code.Replace("__", "_");
+        var normalized = value.Trim();
+        if (normalized.Length > MaximumNameLength ||
+            normalized.Any(char.IsControl))
+        {
+            throw new ArgumentException(
+                $"Collection name cannot exceed {MaximumNameLength} characters or contain control characters.",
+                nameof(value));
+        }
 
-        return code.Trim('_');
+        return normalized;
+    }
+
+    private static string NormalizeDescription(string? value)
+    {
+        var normalized = value?.Trim() ?? string.Empty;
+        if (normalized.Length > MaximumDescriptionLength)
+        {
+            throw new ArgumentException(
+                $"Collection description cannot exceed {MaximumDescriptionLength} characters.",
+                nameof(value));
+        }
+
+        return normalized;
     }
 }

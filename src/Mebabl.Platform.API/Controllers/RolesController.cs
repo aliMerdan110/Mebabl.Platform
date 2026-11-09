@@ -10,7 +10,7 @@ namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
 [Route("api/roles")]
-[Authorize]
+[Authorize(Policy = "Application")]
 public sealed class RolesController : BaseApiController
 {
     [HttpPost]

@@ -1,4 +1,6 @@
+
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Domain.Entities.Notifications;
 
@@ -22,12 +24,46 @@ public sealed class CreateNotificationCommandHandler
         CreateNotificationCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated application credentials are required.");
+        }
+
+        if (request.UserId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid recipient user ID is required.",
+                nameof(request.UserId));
+        }
+
+        // Ensure the recipient belongs to this application and
+        // that the user, account, and application are usable.
+        var recipientExists = await _context.ApplicationUsers
+            .AsNoTracking()
+            .AnyAsync(
+                x =>
+                    x.Id == request.UserId &&
+                    x.ApplicationId == applicationId &&
+                    x.IsActive &&
+                    !x.IsDeleted &&
+                    !x.Account.IsDeleted &&
+                    x.Application.IsActive &&
+                    !x.Application.IsDeleted,
+                cancellationToken);
+
+        if (!recipientExists)
+        {
+            throw new KeyNotFoundException(
+                "Recipient user not found in this application.");
+        }
 
         var notification = new Notification
         {
-            ApplicationId = _currentApplication.ApplicationId,
+            ApplicationId = applicationId,
             UserId = request.UserId,
             Type = request.Type,
             Title = request.Title,

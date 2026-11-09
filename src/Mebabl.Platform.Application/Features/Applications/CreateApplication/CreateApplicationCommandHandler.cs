@@ -1,12 +1,13 @@
+
+using System.Security.Cryptography;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Common.Providers;
+using Mebabl.Platform.Application.Common.Services.ApplicationInitialization;
 using Mebabl.Platform.Application.Services.Password;
 using Mebabl.Platform.Domain.Entities.Identity;
-using System.Security.Cryptography;
-using Mebabl.Platform.Application.Common.Services.ApplicationInitialization;
-using Mebabl.Platform.Application.Common.Providers;
-
+using Mebabl.Platform.Domain.Entities.Projects;
 
 namespace Mebabl.Platform.Application.Features.Applications.CreateApplication;
 
@@ -18,151 +19,187 @@ public sealed class CreateApplicationCommandHandler
     private readonly IPasswordHasher _passwordHasher;
     private readonly IApplicationInitializer _initializer;
 
-   public CreateApplicationCommandHandler(
-    IApplicationDbContext dbContext,
-    ICurrentDeveloper currentDeveloper,
-    IPasswordHasher passwordHasher,
-    IApplicationInitializer initializer)
-{
-    _dbContext = dbContext;
-    _currentDeveloper = currentDeveloper;
-    _passwordHasher = passwordHasher;
-    _initializer = initializer;
-}
+    public CreateApplicationCommandHandler(
+        IApplicationDbContext dbContext,
+        ICurrentDeveloper currentDeveloper,
+        IPasswordHasher passwordHasher,
+        IApplicationInitializer initializer)
+    {
+        _dbContext = dbContext;
+        _currentDeveloper = currentDeveloper;
+        _passwordHasher = passwordHasher;
+        _initializer = initializer;
+    }
 
     public async Task<CreateApplicationResponse> Handle(
         CreateApplicationCommand request,
         CancellationToken cancellationToken)
     {
         if (!_currentDeveloper.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated developer is required.");
+        }
 
-        var code = request.Code
-            .Trim()
-            .ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new ArgumentException("Application name is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Code))
+            throw new ArgumentException("Application code is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Platform))
+            throw new ArgumentException("Platform is required.");
+
+        var name = request.Name.Trim();
+        var code = request.Code.Trim().ToLowerInvariant();
+        var platformName = request.Platform.Trim().ToLowerInvariant();
+
+        if (platformName is not ("web" or "android" or "ios"))
+        {
+            throw new ArgumentException(
+                "Platform must be web, android, or ios.");
+        }
+
+        var packageName = Normalize(request.PackageName);
+        var bundleId = Normalize(request.BundleId);
+        var domain = Normalize(request.Domain);
+        var nickname = Normalize(request.Nickname);
+        var description = Normalize(request.Description);
+
+        switch (platformName)
+        {
+            case "web" when domain is null:
+                throw new ArgumentException(
+                    "Domain is required for a Web application.");
+
+            case "android" when packageName is null:
+                throw new ArgumentException(
+                    "PackageName is required for an Android application.");
+
+            case "ios" when bundleId is null:
+                throw new ArgumentException(
+                    "BundleId is required for an iOS application.");
+        }
+
+        var projectId = await _dbContext.Projects
+            .AsNoTracking()
+            .Where(x =>
+                x.Id == request.ProjectId &&
+                x.DeveloperId == _currentDeveloper.DeveloperId &&
+                x.IsActive)
+            .Select(x => (Guid?)x.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (projectId is null)
+            throw new KeyNotFoundException("Project not found.");
 
         var codeExists = await _dbContext.Applications
             .AnyAsync(
-                x => x.Code == code,
+                x => x.ProjectId == projectId.Value && x.Code == code,
                 cancellationToken);
 
         if (codeExists)
-            throw new Exception("Application code already exists.");
+        {
+            throw new InvalidOperationException(
+                "Application code already exists in this project.");
+        }
+
+        var projectPlatform = new ProjectPlatform
+        {
+            ProjectId = projectId.Value,
+            Platform = platformName,
+            Nickname = nickname,
+            PackageName = platformName == "android" ? packageName : null,
+            BundleId = platformName == "ios" ? bundleId : null,
+            Domain = platformName == "web" ? domain : null,
+            IsActive = true
+        };
+
+        var application = new PlatformApplication
+        {
+            ProjectId = projectId.Value,
+            ProjectPlatform = projectPlatform,
+            Name = name,
+            Code = code,
+            Description = description,
+            IsActive = true
+        };
+
+        var providers = new[]
+        {
+            AuthenticationProviders.EmailPassword,
+            AuthenticationProviders.EmailLink,
+            AuthenticationProviders.Phone,
+            AuthenticationProviders.Anonymous,
+            AuthenticationProviders.Google,
+            AuthenticationProviders.Facebook,
+            AuthenticationProviders.Apple,
+            AuthenticationProviders.GitHub,
+            AuthenticationProviders.Microsoft,
+            AuthenticationProviders.Twitter,
+            AuthenticationProviders.Yahoo
+        };
+
+        foreach (var provider in providers)
+        {
+            application.AuthProviders.Add(new ApplicationAuthProvider
+            {
+                Provider = provider,
+                IsEnabled =
+                    provider == AuthenticationProviders.EmailPassword
+            });
+        }
 
         var apiKey = GenerateKey();
         var apiSecret = GenerateKey();
 
-        var application = new PlatformApplication
-        {
-            DeveloperId = _currentDeveloper.DeveloperId,
-            Name = request.Name,
-            Code = code,
-            Description = request.Description
-        };
-
-        application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.EmailPassword,
-        IsEnabled = true
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.EmailLink,
-        IsEnabled = false
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.Phone,
-        IsEnabled = false
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.Anonymous,
-        IsEnabled = false
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.Google,
-        IsEnabled = false
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.Facebook,
-        IsEnabled = false
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.Apple,
-        IsEnabled = false
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.GitHub,
-        IsEnabled = false
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.Microsoft,
-        IsEnabled = false
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.Twitter,
-        IsEnabled = false
-    });
-
-application.AuthProviders.Add(
-    new ApplicationAuthProvider
-    {
-        Provider = AuthenticationProviders.Yahoo,
-        IsEnabled = false
-    });
-
         application.Credentials.Add(new ApplicationCredential
         {
             ApiKey = apiKey,
-            ApiSecretHash = _passwordHasher.Hash(apiSecret)
+            ApiSecretHash = _passwordHasher.Hash(apiSecret),
+            IsActive = true
         });
 
-        _dbContext.Applications.Add(application);
+        await using var transaction =
+            await _dbContext.BeginTransactionAsync(cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            _dbContext.Applications.Add(application);
 
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
-await _initializer.InitializeAsync(
-    application.Id,
-    cancellationToken); 
+            await _initializer.InitializeAsync(
+                application.Id,
+                cancellationToken);
 
-        return new CreateApplicationResponse(
-            application.Id,
-            application.Name,
-            application.Code,
-            apiKey,
-            apiSecret);
+            await transaction.CommitAsync(cancellationToken);
+
+            return new CreateApplicationResponse(
+                application.Id,
+                application.Name,
+                application.Code,
+                apiKey,
+                apiSecret);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
+
+    private static string? Normalize(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
     }
 
     private static string GenerateKey()
     {
-        return Convert.ToBase64String(
-            RandomNumberGenerator.GetBytes(32));
+        return Convert.ToHexString(
+                RandomNumberGenerator.GetBytes(32))
+            .ToLowerInvariant();
     }
 }

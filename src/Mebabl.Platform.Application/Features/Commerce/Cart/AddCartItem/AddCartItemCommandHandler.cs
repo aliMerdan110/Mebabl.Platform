@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Domain.Entities.Commerce;
 
@@ -8,6 +9,8 @@ namespace Mebabl.Platform.Application.Features.Commerce.Cart.AddCartItem;
 public sealed class AddCartItemCommandHandler
     : IRequestHandler<AddCartItemCommand, Guid>
 {
+    private const int MaximumQuantityPerItem = 1000;
+
     private readonly IApplicationDbContext _db;
     private readonly ICurrentApplication _currentApplication;
     private readonly ICurrentUser _currentUser;
@@ -29,20 +32,37 @@ public sealed class AddCartItemCommandHandler
         var applicationId = _currentApplication.ApplicationId;
         var userId = _currentUser.UserId;
 
+        if (!_currentApplication.IsAuthenticated ||
+            !_currentUser.IsAuthenticated ||
+            applicationId == Guid.Empty ||
+            userId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated application user is required.");
+        }
+
+        if (request.ProductId == Guid.Empty)
+            throw new ArgumentException("Product ID is required.");
+
+        if (request.Quantity < 1 ||
+            request.Quantity > MaximumQuantityPerItem)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Quantity),
+                $"Quantity must be between 1 and {MaximumQuantityPerItem}.");
+        }
+
         var product = await _db.Products
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.ProductId &&
                     x.ApplicationId == applicationId &&
-                    x.IsActive,
+                    x.IsActive &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (product is null)
             throw new KeyNotFoundException("Product not found.");
-
-        if (request.Quantity <= 0)
-            throw new ArgumentException(
-                "Quantity must be greater than zero.");
 
         var cart = await _db.Carts
             .Include(x => x.Items)
@@ -51,6 +71,26 @@ public sealed class AddCartItemCommandHandler
                     x.ApplicationId == applicationId &&
                     x.UserId == userId,
                 cancellationToken);
+
+        var existingItem = cart?.Items
+            .FirstOrDefault(x => x.ProductId == product.Id);
+
+        var currentQuantity = existingItem?.Quantity ?? 0;
+
+        if (currentQuantity > MaximumQuantityPerItem - request.Quantity)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Quantity),
+                "The resulting cart quantity is too large.");
+        }
+
+        var newQuantity = currentQuantity + request.Quantity;
+
+        if (newQuantity > product.StockQuantity)
+        {
+            throw new InvalidOperationException(
+                "Requested quantity exceeds available stock.");
+        }
 
         if (cart is null)
         {
@@ -64,15 +104,10 @@ public sealed class AddCartItemCommandHandler
             _db.Carts.Add(cart);
         }
 
-        var existingItem = cart.Items
-            .FirstOrDefault(x => x.ProductId == request.ProductId);
-
         if (existingItem is not null)
         {
-            existingItem.Quantity += request.Quantity;
-
+            existingItem.Quantity = newQuantity;
             await _db.SaveChangesAsync(cancellationToken);
-
             return existingItem.Id;
         }
 

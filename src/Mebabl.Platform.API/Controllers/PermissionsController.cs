@@ -12,7 +12,7 @@ namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
 [Route("api/permissions")]
-[Authorize]
+[Authorize(Policy = "Application")]
 public sealed class PermissionsController : BaseApiController
 {
     [HttpPost]

@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Common.Security;
 using Mebabl.Platform.Application.Services.Jwt;
 using Mebabl.Platform.Application.Services.Password;
 using Mebabl.Platform.Domain.Entities.Identity;
@@ -10,6 +12,9 @@ namespace Mebabl.Platform.Application.Features.SdkAuth.Login;
 public sealed class LoginUserCommandHandler
     : IRequestHandler<LoginUserCommand, LoginUserResponse>
 {
+    private static readonly TimeSpan RefreshTokenLifetime =
+        TimeSpan.FromDays(7);
+
     private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentApplication _currentApplication;
     private readonly IPasswordHasher _passwordHasher;
@@ -31,98 +36,122 @@ public sealed class LoginUserCommandHandler
         LoginUserCommand request,
         CancellationToken cancellationToken)
     {
-        var applicationId = _currentApplication.ApplicationId;
+        ArgumentNullException.ThrowIfNull(request);
 
-        if (applicationId == Guid.Empty)
+        if (!_currentApplication.IsAuthenticated)
         {
             throw new UnauthorizedAccessException(
                 "Application authentication is required.");
         }
 
-        var normalizedEmail = request.Email
-            .Trim()
-            .ToUpperInvariant();
+        var applicationId = _currentApplication.ApplicationId;
 
-        var applicationUser = await _dbContext.ApplicationUsers
+        if (applicationId == Guid.Empty ||
+            string.IsNullOrWhiteSpace(request.Email) ||
+            request.Email.Length > 256 ||
+            string.IsNullOrWhiteSpace(request.Password))
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid email or password.");
+        }
+
+        var normalizedEmail = request.Email.Trim().ToUpperInvariant();
+        var now = DateTime.UtcNow;
+
+        // Load the owning application so the user token is issued with the
+        // ProjectId resolved from the persisted Application -> Project relation.
+        var user = await _dbContext.ApplicationUsers
+            .Include(x => x.Application)
             .FirstOrDefaultAsync(
                 x =>
                     x.ApplicationId == applicationId &&
                     x.NormalizedEmail == normalizedEmail &&
-                    !x.IsDeleted,
+                    !x.IsDeleted &&
+                    !x.Account.IsDeleted &&
+                    x.Application.IsActive &&
+                    !x.Application.IsDeleted &&
+                    x.Application.Project.IsActive &&
+                    !x.Application.Project.IsDeleted,
                 cancellationToken);
 
-        if (applicationUser is null)
+        if (user is null ||
+            !user.IsActive ||
+            (user.LockoutEnabled &&
+             user.LockoutEnd.HasValue &&
+             user.LockoutEnd.Value > now) ||
+            string.IsNullOrWhiteSpace(user.PasswordHash) ||
+            !_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             throw new UnauthorizedAccessException(
                 "Invalid email or password.");
         }
 
-        if (!applicationUser.IsActive)
+        var projectId = user.Application.ProjectId;
+        if (projectId == Guid.Empty)
         {
-            throw new UnauthorizedAccessException(
-                "User account is inactive.");
+            throw new InvalidOperationException(
+                "The application is not associated with a valid project.");
         }
 
-        if (string.IsNullOrWhiteSpace(
-                applicationUser.PasswordHash))
+        if (string.IsNullOrWhiteSpace(user.SecurityStamp))
         {
-            throw new UnauthorizedAccessException(
-                "Invalid email or password.");
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
         }
 
-        var passwordValid = _passwordHasher.Verify(
-            request.Password,
-            applicationUser.PasswordHash);
-
-        if (!passwordValid)
-        {
-            throw new UnauthorizedAccessException(
-                "Invalid email or password.");
-        }
-
-        applicationUser.LastLoginAt = DateTime.UtcNow;
+        user.LastLoginAt = now;
 
         var roles = await _dbContext.ApplicationUserRoles
-            .Where(
-                x =>
-                    x.ApplicationUserId ==
-                    applicationUser.Id)
+            .AsNoTracking()
+            .Where(x =>
+                x.ApplicationUserId == user.Id &&
+                x.Role.ApplicationId == applicationId &&
+                x.Role.IsActive &&
+                !x.Role.IsDeleted)
             .Select(x => x.Role.Name)
             .Distinct()
             .ToListAsync(cancellationToken);
 
         var permissions = await _dbContext.ApplicationUserRoles
-            .Where(
-                x =>
-                    x.ApplicationUserId ==
-                    applicationUser.Id)
+            .AsNoTracking()
+            .Where(x =>
+                x.ApplicationUserId == user.Id &&
+                x.Role.ApplicationId == applicationId &&
+                x.Role.IsActive &&
+                !x.Role.IsDeleted)
             .SelectMany(x => x.Role.RolePermissions)
+            .Where(x =>
+                x.Permission.ApplicationId == applicationId &&
+                x.Permission.IsActive &&
+                !x.Permission.IsDeleted)
             .Select(x => x.Permission.Code)
             .Distinct()
             .ToListAsync(cancellationToken);
 
+        var rawRefreshToken = _jwtTokenGenerator.GenerateRefreshToken();
         var refreshToken = new RefreshToken
         {
-            ApplicationUserId = applicationUser.Id,
-            Token = _jwtTokenGenerator.GenerateRefreshToken(),
-            ExpiresAt = DateTime.UtcNow.AddDays(7)
+            ApplicationUserId = user.Id,
+            Token = null,
+            TokenHash = RefreshTokenHashing.Hash(rawRefreshToken),
+            ExpiresAt = now.Add(RefreshTokenLifetime)
         };
 
         _dbContext.RefreshTokens.Add(refreshToken);
-
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var accessToken = _jwtTokenGenerator.GenerateAccessToken(
-            applicationUser.AccountId,
-            applicationUser.Id,
-            applicationUser.ApplicationId,
+            user.AccountId,
+            user.Id,
+            applicationId,
+            projectId,
+            user.SecurityStamp,
             roles,
             permissions);
 
         return new LoginUserResponse(
-            applicationUser.AccountId,
-            applicationUser.Id,
+            user.AccountId,
+            user.Id,
             accessToken,
-            refreshToken.Token);
+            rawRefreshToken);
     }
 }

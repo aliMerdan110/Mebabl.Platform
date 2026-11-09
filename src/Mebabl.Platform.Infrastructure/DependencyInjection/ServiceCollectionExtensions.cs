@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +28,7 @@ using Mebabl.Platform.Infrastructure.Database.QueryEngine;
 using Mebabl.Platform.Infrastructure.Identity;
 using Mebabl.Platform.Infrastructure.Live;
 using Mebabl.Platform.Infrastructure.Realtime;
+using Mebabl.Platform.Infrastructure.Security;
 using Mebabl.Platform.Infrastructure.Services.Clock;
 using Mebabl.Platform.Infrastructure.Services.CurrentUser;
 using Mebabl.Platform.Infrastructure.Services.Email;
@@ -44,27 +44,33 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // تسجيل خدمات البنية التحتية الأساسية للمنصة.
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
 
-        services.AddScoped<
-            IPasswordResetTokenService,
-            PasswordResetTokenService>();
+        services.AddHttpClient("SrsApi", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(8);
+        });
+
+        services.AddSingleton<
+            IRealtimeConnectionManager,
+            RealtimeConnectionManager>();
+
+        // Register each hosted service exactly once.
+        services.AddHostedService<LiveStreamReconciliationService>();
+
+        services.AddScoped<IPasswordResetTokenService, PasswordResetTokenService>();
 
         services.Configure<EmailOptions>(
-            configuration.GetSection(
-                EmailOptions.SectionName));
+            configuration.GetSection(EmailOptions.SectionName));
 
-        services.AddScoped<
-            IEmailService,
-            SmtpEmailService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
 
         services.Configure<JwtOptions>(
-            configuration.GetSection(
-                JwtOptions.SectionName));
+            configuration.GetSection(JwtOptions.SectionName));
 
         services.Configure<ConsoleOptions>(
-            configuration.GetSection(
-                ConsoleOptions.SectionName));
+            configuration.GetSection(ConsoleOptions.SectionName));
 
         services.AddSingleton<
             IAuthorizationPolicyProvider,
@@ -78,29 +84,17 @@ public static class ServiceCollectionExtensions
             IAuthorizationHandler,
             ApplicationUserAuthorizationHandler>();
 
-        services.AddDbContext<PlatformDbContext>(
-            options =>
-                options.UseNpgsql(
-                    configuration.GetConnectionString(
-                        "DefaultConnection")));
+        services.AddDbContext<PlatformDbContext>(options =>
+            options.UseNpgsql(
+                configuration.GetConnectionString("DefaultConnection")));
 
-        services.AddScoped<IApplicationDbContext>(
-            provider =>
-                provider.GetRequiredService<
-                    PlatformDbContext>());
+        services.AddScoped<IApplicationDbContext>(provider =>
+            provider.GetRequiredService<PlatformDbContext>());
 
-        services.AddScoped<
-            IPermissionChecker,
-            PermissionChecker>();
+        services.AddScoped<IPermissionChecker, PermissionChecker>();
 
-        services.AddScoped<
-            ILiveAuthorizationService,
-            LiveAuthorizationService>();
-
-        services.AddScoped<
-            IPublishTokenService,
-            PublishTokenService>();
-
+        services.AddScoped<ILiveAuthorizationService, LiveAuthorizationService>();
+        services.AddScoped<IPublishTokenService, PublishTokenService>();
         services.AddScoped<
             ISrsPublishAuthorizationService,
             SrsPublishAuthorizationService>();
@@ -109,62 +103,33 @@ public static class ServiceCollectionExtensions
             IDocumentSecurityService,
             DocumentSecurityService>();
 
-        services.AddScoped<
-            IRealtimePublisher,
-            SignalRRealtimePublisher>();
+        services.AddScoped<IRealtimePublisher, SignalRRealtimePublisher>();
 
-        services.AddScoped<
-            ICurrentUser,
-            CurrentUser>();
-
-        services.AddScoped<
-            ICurrentDeveloper,
-            CurrentDeveloper>();
-
-        services.AddScoped<
-            ICurrentApplication,
-            CurrentApplication>();
+        services.AddScoped<ICurrentUser, CurrentUser>();
+        services.AddScoped<ICurrentDeveloper, CurrentDeveloper>();
+        services.AddScoped<ICurrentApplication, CurrentApplication>();
 
         services.AddHttpContextAccessor();
 
-        services.AddScoped<
-            IClock,
-            Clock>();
-
-        services.AddScoped<
-            IPasswordHasher,
-            PasswordHasher>();
-
-        services.AddScoped<
-            IJwtTokenGenerator,
-            JwtTokenGenerator>();
-
-        services.AddScoped<
-            IApplicationInitializer,
-            ApplicationInitializer>();
-
-        services.AddScoped<
-            IQueryBuilder,
-            PostgreSqlQueryBuilder>();
-
-        services.AddScoped<
-            IStorageProvider,
-            LocalStorageProvider>();
+        services.AddScoped<IClock, Clock>();
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddScoped<IApplicationInitializer, ApplicationInitializer>();
+        services.AddScoped<IQueryBuilder, PostgreSqlQueryBuilder>();
+        services.AddScoped<IStorageProvider, LocalStorageProvider>();
 
         services.AddCors(options =>
         {
-            options.AddPolicy(
-                "MebablConsole",
-                policy =>
-                {
-                    policy
-                        .WithOrigins(
-                            "http://localhost:3000",
-                            "https://mebabl.com")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials();
-                });
+            options.AddPolicy("MebablConsole", policy =>
+            {
+                policy
+                    .WithOrigins(
+                        "http://localhost:3000",
+                        "https://mebabl.com")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
         });
 
         return services;

@@ -1,7 +1,10 @@
+
 using System.Security.Cryptography;
 using System.Text;
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Services.Clock;
 using Mebabl.Platform.Domain.Live;
@@ -31,18 +34,19 @@ public sealed class CreateStreamCommandHandler
         CancellationToken cancellationToken)
     {
         if (!_currentDeveloper.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+            throw new UnauthorizedAccessException(
+                "Authenticated developer is required.");
 
         var application = await _dbContext.Applications
             .FirstOrDefaultAsync(
                 x =>
                     x.Id == request.ApplicationId &&
-                    x.DeveloperId == _currentDeveloper.DeveloperId,
+                    x.Project.DeveloperId == _currentDeveloper.DeveloperId &&
+                    !x.IsDeleted,
                 cancellationToken);
 
         if (application is null)
-            throw new UnauthorizedAccessException(
-                "Application does not belong to the current developer.");
+            throw new KeyNotFoundException("Application not found.");
 
         var name = request.Name.Trim();
 
@@ -60,8 +64,7 @@ public sealed class CreateStreamCommandHandler
         var rawStreamKey = GenerateStreamKey();
 
         var keyHash = Convert.ToHexString(
-            SHA256.HashData(
-                Encoding.UTF8.GetBytes(rawStreamKey)));
+            SHA256.HashData(Encoding.UTF8.GetBytes(rawStreamKey)));
 
         var now = _clock.UtcNow;
 
@@ -100,12 +103,8 @@ public sealed class CreateStreamCommandHandler
             stream.Title,
             rawStreamKey,
             "rtmp://live.mebabl.com/live",
-            $"https://live.mebabl.com/hls/{stream.Id}.m3u8");
-    }
+            $"https://live.mebabl.com/hls/{Uri.EscapeDataString(stream.Name)}.m3u8");  }
 
-    private static string GenerateStreamKey()
-    {
-        return Convert.ToBase64String(
-            RandomNumberGenerator.GetBytes(32));
-    }
+    private static string GenerateStreamKey() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 }

@@ -25,10 +25,9 @@ public sealed class PlatformDbContextFactory
             .Build();
 
         var connectionString =
-    Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-    ?? configuration.GetConnectionString("DefaultConnection");
+            Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+            ?? configuration.GetConnectionString("DefaultConnection");
 
-    
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
@@ -52,5 +51,6 @@ internal sealed class DesignTimeCurrentUser : ICurrentUser
     public Guid UserId => Guid.Empty;
     public Guid AccountId => Guid.Empty;
     public Guid ApplicationId => Guid.Empty;
+    public Guid ProjectId => Guid.Empty;
     public bool IsAuthenticated => false;
 }

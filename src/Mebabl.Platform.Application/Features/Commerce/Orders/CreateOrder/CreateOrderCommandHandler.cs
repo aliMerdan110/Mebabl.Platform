@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Domain.Entities.Commerce;
 
@@ -26,12 +27,25 @@ public sealed class CreateOrderCommandHandler
         CreateOrderCommand request,
         CancellationToken cancellationToken)
     {
+        var applicationId = _currentApplication.ApplicationId;
+        var userId = _currentUser.UserId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            !_currentUser.IsAuthenticated ||
+            applicationId == Guid.Empty ||
+            userId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated application user is required.");
+        }
+
         var cart = await _db.Carts
             .Include(x => x.Items)
             .ThenInclude(x => x.Product)
-            .FirstOrDefaultAsync(x =>
-                x.ApplicationId == _currentApplication.ApplicationId &&
-                x.UserId == _currentUser.UserId,
+            .FirstOrDefaultAsync(
+                x =>
+                    x.ApplicationId == applicationId &&
+                    x.UserId == userId,
                 cancellationToken);
 
         if (cart is null || cart.Items.Count == 0)
@@ -39,40 +53,62 @@ public sealed class CreateOrderCommandHandler
 
         foreach (var item in cart.Items)
         {
-            if (!item.Product.IsActive)
+            if (item.Quantity <= 0)
                 throw new InvalidOperationException(
-                    $"Product '{item.Product.Name}' is unavailable.");
+                    "The cart contains an invalid quantity.");
+
+            if (item.Product.ApplicationId != applicationId ||
+                !item.Product.IsActive ||
+                item.Product.IsDeleted)
+            {
+                throw new InvalidOperationException(
+                    "The cart contains an unavailable product.");
+            }
 
             if (item.Quantity > item.Product.StockQuantity)
+            {
                 throw new InvalidOperationException(
                     $"Insufficient stock for '{item.Product.Name}'.");
+            }
+        }
+
+        var currencies = cart.Items
+            .Select(x => x.Product.Currency)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (currencies.Length != 1)
+        {
+            throw new InvalidOperationException(
+                "All products in an order must use the same currency.");
         }
 
         var order = new Order
         {
             Id = Guid.NewGuid(),
-            ApplicationId = _currentApplication.ApplicationId,
-            UserId = _currentUser.UserId,
+            ApplicationId = applicationId,
+            UserId = userId,
             Status = "Pending",
-            Currency = cart.Items.First().Product.Currency
+            Currency = currencies[0]
         };
 
         foreach (var cartItem in cart.Items)
         {
-            var total = cartItem.Product.Price * cartItem.Quantity;
+            var product = cartItem.Product;
+            var total = product.Price * cartItem.Quantity;
 
             order.Items.Add(new OrderItem
             {
                 Id = Guid.NewGuid(),
                 OrderId = order.Id,
-                ProductId = cartItem.ProductId,
-                ProductName = cartItem.Product.Name,
-                UnitPrice = cartItem.Product.Price,
+                ProductId = product.Id,
+                ProductName = product.Name,
+                UnitPrice = product.Price,
                 Quantity = cartItem.Quantity,
                 TotalPrice = total
             });
 
-            cartItem.Product.StockQuantity -= cartItem.Quantity;
+            product.StockQuantity -= cartItem.Quantity;
         }
 
         order.TotalAmount = order.Items.Sum(x => x.TotalPrice);
@@ -80,6 +116,7 @@ public sealed class CreateOrderCommandHandler
         _db.Orders.Add(order);
         _db.CartItems.RemoveRange(cart.Items);
 
+        // EF Core ينفذ تغييرات SaveChanges ضمن معاملة قاعدة بيانات واحدة.
         await _db.SaveChangesAsync(cancellationToken);
 
         return order.Id;

@@ -5,6 +5,7 @@ namespace Mebabl.Platform.Domain.Entities.Projects;
 public sealed class ProjectSdkConfiguration : AuditableEntity
 {
     public Guid ProjectId { get; set; }
+
     public PlatformProject Project { get; set; } = default!;
 
     public string ProjectNumber { get; set; } = string.Empty;

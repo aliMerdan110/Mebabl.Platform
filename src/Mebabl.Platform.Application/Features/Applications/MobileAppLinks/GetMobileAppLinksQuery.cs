@@ -42,7 +42,7 @@ public sealed class GetMobileAppLinksQueryHandler
             .AnyAsync(
                 x =>
                     x.Id == request.ApplicationId &&
-                    x.DeveloperId == _currentDeveloper.DeveloperId,
+                    x.Project.DeveloperId == _currentDeveloper.DeveloperId,
                 cancellationToken);
 
         if (!applicationExists)

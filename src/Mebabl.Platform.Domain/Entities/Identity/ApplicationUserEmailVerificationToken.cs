@@ -4,11 +4,11 @@ namespace Mebabl.Platform.Domain.Entities.Identity;
 
 public sealed class ApplicationUserEmailVerificationToken : AuditableEntity
 {
-    public Guid UserId { get; set; }
+    public Guid ApplicationUserId { get; set; }
 
-    public ApplicationUser User { get; set; } = default!;
+    public ApplicationUser ApplicationUser { get; set; } = default!;
 
-    public string TokenHash { get; set; } = default!;
+    public string TokenHash { get; set; } = string.Empty;
 
     public DateTime ExpiresAt { get; set; }
 

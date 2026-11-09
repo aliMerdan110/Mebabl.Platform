@@ -4,6 +4,7 @@ namespace Mebabl.Platform.Application.Features.SdkStorage.Content;
 
 public sealed record GetFileContentQuery(
     Guid ApplicationId,
+    Guid UserId,
     Guid FileId
 ) : IRequest<GetFileContentResult>;
 

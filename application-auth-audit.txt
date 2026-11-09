@@ -1,0 +1,340 @@
+﻿
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\ApplicationsController.cs
+LINE: 130
+CODE: typeof(CreateApplicationCredentialResponse),
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\ApplicationsController.cs
+LINE: 137
+CODE: new CreateApplicationCredentialCommand(id),
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\ApplicationsController.cs
+LINE: 146
+CODE: typeof(IReadOnlyList<ApplicationCredentialResponse>),
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\ApplicationsController.cs
+LINE: 153
+CODE: new GetApplicationCredentialsQuery(id),
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\ApplicationsController.cs
+LINE: 169
+CODE: new DisableApplicationCredentialCommand(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\ApplicationsController.cs
+LINE: 187
+CODE: new EnableApplicationCredentialCommand(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\SdkAuthController.cs
+LINE: 22
+CODE: [Authorize(Policy = "Application")]
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\SdkAuthController.cs
+LINE: 35
+CODE: [Authorize(Policy = "Application")]
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\SdkAuthController.cs
+LINE: 98
+CODE: [Authorize(Policy = "Application")]
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\SdkCommerceController.cs
+LINE: 26
+CODE: [Authorize(Policy = "Application")]
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\SdkSocialController.cs
+LINE: 19
+CODE: [Authorize(Policy = "Application")]
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.API\Controllers\SdkStorageController.cs
+LINE: 13
+CODE: [Authorize(Policy = "Application")]
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Common\Interfaces\InterfacesIApplicationDbContext.cs
+LINE: 48
+CODE: DbSet<ApplicationCredential> ApplicationCredentials { get; }
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\ApplicationAuthentication\Login\ApplicationLoginCommand.cs
+LINE: 8
+CODE: string ApiSecret
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\ApplicationAuthentication\Login\ApplicationLoginCommandHandler.cs
+LINE: 33
+CODE: var credential = await _dbContext.ApplicationCredentials
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\ApplicationAuthentication\Login\ApplicationLoginCommandHandler.cs
+LINE: 51
+CODE: request.ApiSecret,
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\ApplicationAuthentication\Login\ApplicationLoginCommandHandler.cs
+LINE: 52
+CODE: credential.ApiSecretHash);
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\ApplicationAuthentication\Login\ApplicationLoginCommandHandler.cs
+LINE: 60
+CODE: var token = _jwt.GenerateApplicationToken(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\CreateApplication\CreateApplicationCommandHandler.cs
+LINE: 154
+CODE: var apiSecret = GenerateKey();
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\CreateApplication\CreateApplicationCommandHandler.cs
+LINE: 156
+CODE: application.Credentials.Add(new ApplicationCredential
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\CreateApplication\CreateApplicationCommandHandler.cs
+LINE: 159
+CODE: ApiSecretHash = _passwordHasher.Hash(apiSecret),
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\CreateApplication\CreateApplicationCommandHandler.cs
+LINE: 183
+CODE: apiSecret);
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\CreateApplication\CreateApplicationResponse.cs
+LINE: 8
+CODE: string ApiSecret);
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommand.cs
+LINE: 5
+CODE: public sealed record CreateApplicationCredentialCommand(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommand.cs
+LINE: 7
+CODE: : IRequest<CreateApplicationCredentialResponse>;
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 13
+CODE: public sealed class CreateApplicationCredentialCommandHandler
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 14
+CODE: : IRequestHandler<CreateApplicationCredentialCommand, CreateApplicationCredentialResponse>
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 20
+CODE: public CreateApplicationCredentialCommandHandler(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 30
+CODE: public async Task<CreateApplicationCredentialResponse> Handle(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 31
+CODE: CreateApplicationCredentialCommand request,
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 50
+CODE: var apiSecret = GenerateKey();
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 52
+CODE: var credential = new ApplicationCredential
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 56
+CODE: ApiSecretHash = _passwordHasher.Hash(apiSecret),
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 60
+CODE: _dbContext.ApplicationCredentials.Add(credential);
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 64
+CODE: return new CreateApplicationCredentialResponse(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialCommandHandler.cs
+LINE: 67
+CODE: apiSecret);
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialResponse.cs
+LINE: 3
+CODE: public sealed record CreateApplicationCredentialResponse(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialResponse.cs
+LINE: 6
+CODE: string ApiSecret);
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialValidator.cs
+LINE: 5
+CODE: public sealed class CreateApplicationCredentialValidator
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialValidator.cs
+LINE: 6
+CODE: : AbstractValidator<CreateApplicationCredentialCommand>
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\CreateApplicationCredentialValidator.cs
+LINE: 8
+CODE: public CreateApplicationCredentialValidator()
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\DisableCredential\DisableApplicationCredentialCommand.cs
+LINE: 5
+CODE: public sealed record DisableApplicationCredentialCommand(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\DisableCredential\DisableApplicationCredentialCommandHandler.cs
+LINE: 9
+CODE: public sealed class DisableApplicationCredentialCommandHandler
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\DisableCredential\DisableApplicationCredentialCommandHandler.cs
+LINE: 10
+CODE: : IRequestHandler<DisableApplicationCredentialCommand>
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\DisableCredential\DisableApplicationCredentialCommandHandler.cs
+LINE: 15
+CODE: public DisableApplicationCredentialCommandHandler(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\DisableCredential\DisableApplicationCredentialCommandHandler.cs
+LINE: 24
+CODE: DisableApplicationCredentialCommand request,
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\DisableCredential\DisableApplicationCredentialCommandHandler.cs
+LINE: 31
+CODE: var credential = await _dbContext.ApplicationCredentials
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\DisableCredential\DisableApplicationCredentialValidator.cs
+LINE: 5
+CODE: public sealed class DisableApplicationCredentialValidator
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\DisableCredential\DisableApplicationCredentialValidator.cs
+LINE: 6
+CODE: : AbstractValidator<DisableApplicationCredentialCommand>
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\DisableCredential\DisableApplicationCredentialValidator.cs
+LINE: 8
+CODE: public DisableApplicationCredentialValidator()
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\EnableCredential\EnableApplicationCredentialCommand.cs
+LINE: 5
+CODE: public sealed record EnableApplicationCredentialCommand(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\EnableCredential\EnableApplicationCredentialCommandHandler.cs
+LINE: 9
+CODE: public sealed class EnableApplicationCredentialCommandHandler
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\EnableCredential\EnableApplicationCredentialCommandHandler.cs
+LINE: 10
+CODE: : IRequestHandler<EnableApplicationCredentialCommand>
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\EnableCredential\EnableApplicationCredentialCommandHandler.cs
+LINE: 15
+CODE: public EnableApplicationCredentialCommandHandler(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\EnableCredential\EnableApplicationCredentialCommandHandler.cs
+LINE: 24
+CODE: EnableApplicationCredentialCommand request,
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\EnableCredential\EnableApplicationCredentialCommandHandler.cs
+LINE: 31
+CODE: var credential = await _dbContext.ApplicationCredentials
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\EnableCredential\EnableApplicationCredentialValidator.cs
+LINE: 5
+CODE: public sealed class EnableApplicationCredentialValidator
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\EnableCredential\EnableApplicationCredentialValidator.cs
+LINE: 6
+CODE: : AbstractValidator<EnableApplicationCredentialCommand>
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\EnableCredential\EnableApplicationCredentialValidator.cs
+LINE: 8
+CODE: public EnableApplicationCredentialValidator()
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\ApplicationCredentialResponse.cs
+LINE: 3
+CODE: public sealed record ApplicationCredentialResponse(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQuery.cs
+LINE: 5
+CODE: public sealed record GetApplicationCredentialsQuery(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQuery.cs
+LINE: 7
+CODE: : IRequest<IReadOnlyList<ApplicationCredentialResponse>>;
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQueryHandler.cs
+LINE: 7
+CODE: public sealed class GetApplicationCredentialsQueryHandler
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQueryHandler.cs
+LINE: 9
+CODE: GetApplicationCredentialsQuery,
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQueryHandler.cs
+LINE: 10
+CODE: IReadOnlyList<ApplicationCredentialResponse>>
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQueryHandler.cs
+LINE: 15
+CODE: public GetApplicationCredentialsQueryHandler(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQueryHandler.cs
+LINE: 23
+CODE: public async Task<IReadOnlyList<ApplicationCredentialResponse>> Handle(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQueryHandler.cs
+LINE: 24
+CODE: GetApplicationCredentialsQuery request,
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQueryHandler.cs
+LINE: 47
+CODE: return await _dbContext.ApplicationCredentials
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Applications\Credentials\GetCredentials\GetApplicationCredentialsQueryHandler.cs
+LINE: 51
+CODE: .Select(x => new ApplicationCredentialResponse(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Projects\GetProjectSdkConfiguration\GetProjectSdkConfigurationQueryHandler.cs
+LINE: 114
+CODE: ApiKey = _dbContext.ApplicationCredentials
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Features\Projects\Platforms\GetProjectPlatformConfig\GetProjectPlatformConfigQueryHandler.cs
+LINE: 111
+CODE: var credential = await _dbContext.ApplicationCredentials
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Application\Services\Jwt\IJwtTokenGenerator.cs
+LINE: 7
+CODE: string GenerateApplicationToken(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Domain\Entities\Identity\ApplicationCredential.cs
+LINE: 5
+CODE: public class ApplicationCredential : AuditableEntity
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Domain\Entities\Identity\ApplicationCredential.cs
+LINE: 13
+CODE: public string ApiSecretHash { get; set; } = string.Empty;
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Domain\Entities\Identity\PlatformApplication.cs
+LINE: 28
+CODE: public ICollection<ApplicationCredential> Credentials { get; set; }
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Domain\Entities\Identity\PlatformApplication.cs
+LINE: 29
+CODE: = new List<ApplicationCredential>();
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Infrastructure\Authentication\Jwt\JwtTokenGenerator.cs
+LINE: 44
+CODE: public string GenerateApplicationToken(
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Infrastructure\Data\PlatformDbContext.cs
+LINE: 56
+CODE: public DbSet<ApplicationCredential> ApplicationCredentials =>
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Infrastructure\Data\PlatformDbContext.cs
+LINE: 57
+CODE: Set<ApplicationCredential>();
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Infrastructure\Data\Configurations\Core\ApplicationCredentialConfiguration.cs
+LINE: 7
+CODE: public sealed class ApplicationCredentialConfiguration
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Infrastructure\Data\Configurations\Core\ApplicationCredentialConfiguration.cs
+LINE: 8
+CODE: : IEntityTypeConfiguration<ApplicationCredential>
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Infrastructure\Data\Configurations\Core\ApplicationCredentialConfiguration.cs
+LINE: 11
+CODE: EntityTypeBuilder<ApplicationCredential> builder)
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Infrastructure\Data\Configurations\Core\ApplicationCredentialConfiguration.cs
+LINE: 13
+CODE: builder.ToTable("ApplicationCredentials");
+
+FILE: C:\Projects\Mebabl.Platform\src\Mebabl.Platform.Infrastructure\Data\Configurations\Core\ApplicationCredentialConfiguration.cs
+LINE: 21
+CODE: builder.Property(x => x.ApiSecretHash)

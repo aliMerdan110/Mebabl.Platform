@@ -22,18 +22,32 @@ public sealed class GetRoleByIdQueryHandler
         GetRoleByIdQuery request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
+
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated application is required.");
+        }
+
+        if (request.Id == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid role ID is required.",
+                nameof(request.Id));
+        }
 
         var role = await _dbContext.Roles
             .AsNoTracking()
             .FirstOrDefaultAsync(
-                x => x.Id == request.Id &&
-                     x.ApplicationId == _currentApplication.ApplicationId,
+                x =>
+                    x.Id == request.Id &&
+                    x.ApplicationId == applicationId,
                 cancellationToken);
 
         if (role is null)
-            throw new Exception("Role not found.");
+            throw new KeyNotFoundException("Role not found.");
 
         return new GetRoleByIdResponse(
             role.Id,

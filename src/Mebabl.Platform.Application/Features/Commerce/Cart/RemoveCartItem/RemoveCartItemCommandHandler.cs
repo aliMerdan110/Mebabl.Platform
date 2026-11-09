@@ -25,14 +25,35 @@ public sealed class RemoveCartItemCommandHandler
         RemoveCartItemCommand request,
         CancellationToken cancellationToken)
     {
+        if (!_currentApplication.IsAuthenticated ||
+            _currentApplication.ApplicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The current application is not authenticated.");
+        }
+
+        if (!_currentUser.IsAuthenticated ||
+            _currentUser.UserId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The current user is not authenticated.");
+        }
+
+        if (request.CartItemId == Guid.Empty)
+            return false;
+
+        var applicationId = _currentApplication.ApplicationId;
+        var userId = _currentUser.UserId;
+
         var item = await _db.CartItems
             .Include(x => x.Cart)
             .FirstOrDefaultAsync(x =>
                 x.Id == request.CartItemId &&
-                x.Cart.ApplicationId == _currentApplication.ApplicationId &&
-                x.Cart.UserId == _currentUser.UserId,
+                x.Cart.ApplicationId == applicationId &&
+                x.Cart.UserId == userId,
                 cancellationToken);
 
+        // لا نكشف وجود عنصر يملكه مستخدم آخر.
         if (item is null)
             return false;
 

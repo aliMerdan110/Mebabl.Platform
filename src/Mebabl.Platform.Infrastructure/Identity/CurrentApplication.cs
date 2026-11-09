@@ -14,15 +14,30 @@ public sealed class CurrentApplication : ICurrentApplication
         _httpContextAccessor = httpContextAccessor;
     }
 
+    private ClaimsPrincipal? CurrentUser =>
+        _httpContextAccessor.HttpContext?.User;
+
     public bool IsAuthenticated
     {
         get
         {
-            var user =
-                _httpContextAccessor.HttpContext?.User;
+            var user = CurrentUser;
 
-            return user?.Identity?.IsAuthenticated == true
-                && user.HasClaim("type", "application");
+            if (user?.Identity?.IsAuthenticated != true)
+                return false;
+
+            // Full application token
+            var isSecretApplication =
+                user.HasClaim("type", "application") &&
+                user.HasClaim("authLevel", "secret");
+
+            // Public application token (SDK registration/login)
+            var isPublicApplication =
+                user.HasClaim("type", "application_public") &&
+                user.HasClaim("scope", "public") &&
+                user.HasClaim("authLevel", "public");
+
+            return isSecretApplication || isPublicApplication;
         }
     }
 
@@ -30,10 +45,15 @@ public sealed class CurrentApplication : ICurrentApplication
     {
         get
         {
-            var value =
-                _httpContextAccessor.HttpContext?
-                    .User
-                    .FindFirstValue("applicationId");
+            var user = CurrentUser;
+
+            if (!IsAuthenticated || user is null)
+            {
+                throw new UnauthorizedAccessException(
+                    "The current application is not authenticated.");
+            }
+
+            var value = user.FindFirstValue("applicationId");
 
             if (!Guid.TryParse(value, out var applicationId) ||
                 applicationId == Guid.Empty)

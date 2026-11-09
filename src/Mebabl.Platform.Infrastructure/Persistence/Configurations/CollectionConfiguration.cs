@@ -13,6 +13,9 @@ public sealed class CollectionConfiguration
 
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.ProjectId)
+            .IsRequired();
+
         builder.Property(x => x.Name)
             .HasMaxLength(100)
             .IsRequired();
@@ -22,29 +25,42 @@ public sealed class CollectionConfiguration
             .IsRequired();
 
         builder.Property(x => x.Description)
-            .HasMaxLength(500);
+            .HasMaxLength(500)
+            .IsRequired();
 
         builder.Property(x => x.IsSystem)
-            .HasDefaultValue(false);
+            .HasDefaultValue(false)
+            .IsRequired();
 
         builder.Property(x => x.IsActive)
-            .HasDefaultValue(true);
+            .HasDefaultValue(true)
+            .IsRequired();
 
+        // Code is the normalized, stable collection identifier within a project.
+        // A filtered unique index allows a soft-deleted collection's code to be reused.
         builder.HasIndex(x => new
-        {
-            x.ApplicationId,
-            x.Code
-        }).IsUnique();
+            {
+                x.ProjectId,
+                x.Code
+            })
+            .IsUnique()
+            .HasDatabaseName("UX_Collections_ProjectId_Code_Active")
+            .HasFilter("\"IsDeleted\" = false");
 
+        // Supports project-scoped collection-name lookup without relying on
+        // application IDs, since applications in the same project share data.
         builder.HasIndex(x => new
-        {
-            x.ApplicationId,
-            x.Name
-        }).IsUnique();
+            {
+                x.ProjectId,
+                x.Name
+            })
+            .HasDatabaseName("IX_Collections_ProjectId_Name_Active")
+            .HasFilter("\"IsDeleted\" = false");
 
-        builder.HasOne(x => x.Application)
+        builder.HasOne(x => x.Project)
             .WithMany()
-            .HasForeignKey(x => x.ApplicationId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .HasForeignKey(x => x.ProjectId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -8,7 +8,11 @@ public class DeveloperRefreshToken : AuditableEntity
 
     public Developer Developer { get; set; } = default!;
 
-    public string Token { get; set; } = string.Empty;
+    // Legacy: retained temporarily to support existing tokens.
+    public string? Token { get; set; }
+
+    // SHA-256 hash for newly issued refresh tokens.
+    public string? TokenHash { get; set; }
 
     public DateTime ExpiresAt { get; set; }
 

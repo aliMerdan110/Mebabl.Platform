@@ -8,6 +8,9 @@ namespace Mebabl.Platform.Application.Features.Commerce.Orders.ListOrders;
 public sealed class ListOrdersQueryHandler
     : IRequestHandler<ListOrdersQuery, IReadOnlyList<OrderDto>>
 {
+    private const int MaxPage = 100_000;
+    private const int MaxPageSize = 100;
+
     private readonly IApplicationDbContext _db;
     private readonly ICurrentApplication _currentApplication;
     private readonly ICurrentUser _currentUser;
@@ -26,15 +29,33 @@ public sealed class ListOrdersQueryHandler
         ListOrdersQuery request,
         CancellationToken cancellationToken)
     {
-        var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        if (!_currentApplication.IsAuthenticated ||
+            _currentApplication.ApplicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The current application is not authenticated.");
+        }
+
+        if (!_currentUser.IsAuthenticated ||
+            _currentUser.UserId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "The current user is not authenticated.");
+        }
+
+        var page = Math.Clamp(request.Page, 1, MaxPage);
+        var pageSize = Math.Clamp(request.PageSize, 1, MaxPageSize);
+
+        var applicationId = _currentApplication.ApplicationId;
+        var userId = _currentUser.UserId;
 
         return await _db.Orders
             .AsNoTracking()
             .Where(x =>
-                x.ApplicationId == _currentApplication.ApplicationId &&
-                x.UserId == _currentUser.UserId)
+                x.ApplicationId == applicationId &&
+                x.UserId == userId)
             .OrderByDescending(x => x.CreatedAt)
+            .ThenByDescending(x => x.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(x => new OrderDto(

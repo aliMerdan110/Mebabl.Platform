@@ -23,46 +23,58 @@ public sealed class AssignRoleToUserCommandHandler
         AssignRoleToUserCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
 
-        var user = await _dbContext.ApplicationUsers
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                x =>
-                    x.Id == request.UserId &&
-                    x.ApplicationId == _currentApplication.ApplicationId,
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "An authenticated application is required.");
+        }
+
+        if (request.UserId == Guid.Empty ||
+            request.RoleId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Valid user and role IDs are required.");
+        }
+
+        var userExists = await _dbContext.ApplicationUsers
+            .AnyAsync(
+                x => x.Id == request.UserId &&
+                     x.ApplicationId == applicationId,
                 cancellationToken);
 
-        if (user is null)
-            throw new Exception("User not found.");
+        if (!userExists)
+            throw new KeyNotFoundException("User not found.");
 
-        var role = await _dbContext.Roles
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                x =>
-                    x.Id == request.RoleId &&
-                    x.ApplicationId == _currentApplication.ApplicationId,
+        var roleExists = await _dbContext.Roles
+            .AnyAsync(
+                x => x.Id == request.RoleId &&
+                     x.ApplicationId == applicationId,
                 cancellationToken);
 
-        if (role is null)
-            throw new Exception("Role not found.");
+        if (!roleExists)
+            throw new KeyNotFoundException("Role not found.");
 
         var exists = await _dbContext.ApplicationUserRoles
             .AnyAsync(
-                x =>
-                    x.ApplicationUserId == request.UserId &&
-                    x.RoleId == request.RoleId,
+                x => x.ApplicationUserId == request.UserId &&
+                     x.RoleId == request.RoleId,
                 cancellationToken);
 
         if (exists)
-            throw new Exception("Role already assigned to user.");
-
-        _dbContext.ApplicationUserRoles.Add(new ApplicationUserRole
         {
-            ApplicationUserId = request.UserId,
-            RoleId = request.RoleId
-        });
+            throw new InvalidOperationException(
+                "Role is already assigned to this user.");
+        }
+
+        _dbContext.ApplicationUserRoles.Add(
+            new ApplicationUserRole
+            {
+                ApplicationUserId = request.UserId,
+                RoleId = request.RoleId
+            });
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

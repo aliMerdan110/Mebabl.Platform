@@ -2,9 +2,15 @@ namespace Mebabl.Platform.Application.Features.Applications.GetApplicationById;
 
 public sealed record GetApplicationByIdResponse(
     Guid Id,
+    Guid ProjectId,
+    Guid ProjectPlatformId,
     string Name,
     string Code,
     string? Description,
-    string? Domain,
     bool IsActive,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string Platform,
+    string? Nickname,
+    string? PackageName,
+    string? BundleId,
+    string? Domain);

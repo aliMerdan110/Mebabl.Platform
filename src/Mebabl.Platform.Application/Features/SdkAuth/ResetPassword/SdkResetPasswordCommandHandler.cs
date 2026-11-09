@@ -1,6 +1,8 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Application.Common.Security;
 using Mebabl.Platform.Application.Services.Password;
 using Mebabl.Platform.Application.Services.PasswordReset;
 
@@ -27,12 +29,12 @@ public sealed class SdkResetPasswordCommandHandler
         SdkResetPasswordCommand request,
         CancellationToken cancellationToken)
     {
-        var tokenHash = _tokenService.HashToken(request.Token);
         var now = DateTime.UtcNow;
+        var tokenHash = _tokenService.HashToken(request.Token);
 
         var resetToken =
             await _dbContext.ApplicationUserPasswordResetTokens
-                .Include(x => x.User)
+                .Include(x => x.ApplicationUser)
                 .FirstOrDefaultAsync(
                     x =>
                         x.TokenHash == tokenHash &&
@@ -45,7 +47,7 @@ public sealed class SdkResetPasswordCommandHandler
             throw new PasswordResetTokenInvalidException();
         }
 
-        var user = resetToken.User;
+        var user = resetToken.ApplicationUser;
 
         if (!user.IsActive || user.IsDeleted)
         {
@@ -55,20 +57,21 @@ public sealed class SdkResetPasswordCommandHandler
         user.PasswordHash =
             _passwordHasher.Hash(request.NewPassword);
 
-        user.SecurityStamp =
-            Guid.NewGuid().ToString();
-
+        // Access tokens become invalid when SecurityStamp validation
+        // is enforced by the JWT authentication pipeline.
+        user.SecurityStamp = Guid.NewGuid().ToString();
         user.UpdatedAt = now;
 
+        // Consume the reset token.
         resetToken.UsedAt = now;
 
+        // Invalidate other outstanding password-reset tokens.
         var otherResetTokens =
             await _dbContext.ApplicationUserPasswordResetTokens
-                .Where(
-                    x =>
-                        x.UserId == user.Id &&
-                        x.Id != resetToken.Id &&
-                        x.UsedAt == null)
+                .Where(x =>
+                    x.ApplicationUserId == user.Id &&
+                    x.Id != resetToken.Id &&
+                    x.UsedAt == null)
                 .ToListAsync(cancellationToken);
 
         foreach (var token in otherResetTokens)
@@ -76,20 +79,30 @@ public sealed class SdkResetPasswordCommandHandler
             token.UsedAt = now;
         }
 
-        var refreshTokens =
-            await _dbContext.RefreshTokens
-                .Where(
-                    x =>
-                        x.ApplicationUserId == user.Id &&
-                        x.RevokedAt == null &&
-                        x.ExpiresAt > now)
-                .ToListAsync(cancellationToken);
+        // Load active refresh tokens and legacy plaintext tokens,
+        // including expired tokens that still contain plaintext.
+        var refreshTokens = await _dbContext.RefreshTokens
+            .Where(x =>
+                x.ApplicationUserId == user.Id &&
+                (x.RevokedAt == null || x.Token != null))
+            .ToListAsync(cancellationToken);
 
         foreach (var refreshToken in refreshTokens)
         {
-            refreshToken.RevokedAt = now;
+            // Hash legacy tokens before clearing their plaintext values.
+            if (refreshToken.TokenHash is null &&
+                !string.IsNullOrWhiteSpace(refreshToken.Token))
+            {
+                refreshToken.TokenHash =
+                    RefreshTokenHashing.Hash(refreshToken.Token);
+            }
+
+            refreshToken.Token = null;
+            refreshToken.RevokedAt ??= now;
         }
 
+        // Save the password reset, reset-token consumption,
+        // and refresh-token revocations together.
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new SdkResetPasswordResponse(

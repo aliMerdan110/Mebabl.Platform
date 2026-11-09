@@ -1,13 +1,18 @@
 using Mebabl.Platform.Domain.Common.Entities;
-using Mebabl.Platform.Domain.Entities.Identity;
+using Mebabl.Platform.Domain.Entities.Projects;
 
 namespace Mebabl.Platform.Domain.Entities.Database;
 
-public class Collection : AuditableEntity
+/// <summary>
+/// A collection belongs to a project, so all applications registered
+/// under that project can access the same database resource subject
+/// to the project's database security rules.
+/// </summary>
+public sealed class Collection : AuditableEntity
 {
-    public Guid ApplicationId { get; set; }
+    public Guid ProjectId { get; set; }
 
-    public PlatformApplication Application { get; set; } = default!;
+    public PlatformProject Project { get; set; } = default!;
 
     public string Name { get; set; } = string.Empty;
 

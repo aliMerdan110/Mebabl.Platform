@@ -1,6 +1,8 @@
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+
 using Mebabl.Platform.Application.Features.SdkAuth.Login;
 using Mebabl.Platform.Application.Features.SdkAuth.Register;
 using Mebabl.Platform.Application.Features.SdkAuth.Refresh;
@@ -16,43 +18,36 @@ namespace Mebabl.Platform.API.Controllers;
 
 [ApiController]
 [Route("api/sdk/auth")]
+[EnableCors("MebablSdk")]
 public sealed class SdkAuthController : BaseApiController
 {
     [HttpPost("register")]
-    [Authorize(Policy = "Application")]
+    [Authorize(Policy = "ApplicationPublic")]
     public async Task<IActionResult> Register(
-        RegisterUserCommand command,
+        [FromBody] RegisterUserCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await Sender.Send(
-            command,
-            cancellationToken);
-
+        var result = await Sender.Send(command, cancellationToken);
         return Ok(result);
     }
 
     [HttpPost("login")]
-    [Authorize(Policy = "Application")]
+    [Authorize(Policy = "ApplicationPublic")]
     public async Task<IActionResult> Login(
-        LoginUserCommand command,
+        [FromBody] LoginUserCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await Sender.Send(
-            command,
-            cancellationToken);
-
+        var result = await Sender.Send(command, cancellationToken);
         return Ok(result);
     }
 
     [HttpPost("refresh")]
+    [AllowAnonymous]
     public async Task<IActionResult> Refresh(
-        SdkRefreshTokenCommand command,
+        [FromBody] SdkRefreshTokenCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await Sender.Send(
-            command,
-            cancellationToken);
-
+        var result = await Sender.Send(command, cancellationToken);
         return Ok(result);
     }
 
@@ -62,10 +57,7 @@ public sealed class SdkAuthController : BaseApiController
         [FromBody] SdkLogoutCommand command,
         CancellationToken cancellationToken)
     {
-        await Sender.Send(
-            command,
-            cancellationToken);
-
+        await Sender.Send(command, cancellationToken);
         return NoContent();
     }
 
@@ -87,47 +79,37 @@ public sealed class SdkAuthController : BaseApiController
         [FromBody] SdkChangePasswordCommand command,
         CancellationToken cancellationToken)
     {
-        await Sender.Send(
-            command,
-            cancellationToken);
-
+        await Sender.Send(command, cancellationToken);
         return NoContent();
     }
 
     [HttpPost("forgot-password")]
-    [Authorize(Policy = "Application")]
+    [Authorize(Policy = "ApplicationPublic")]
     public async Task<IActionResult> ForgotPassword(
         [FromBody] SdkForgotPasswordCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await Sender.Send(
-            command,
-            cancellationToken);
-
+        var result = await Sender.Send(command, cancellationToken);
         return Ok(result);
     }
 
     [HttpPost("reset-password")]
+    [AllowAnonymous]
     public async Task<IActionResult> ResetPassword(
         [FromBody] SdkResetPasswordCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await Sender.Send(
-            command,
-            cancellationToken);
-
+        var result = await Sender.Send(command, cancellationToken);
         return Ok(result);
     }
 
     [HttpPost("verify-email")]
+    [AllowAnonymous]
     public async Task<IActionResult> VerifyEmail(
-        VerifyEmailCommand command,
+        [FromBody] VerifyEmailCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await Sender.Send(
-            command,
-            cancellationToken);
-
+        var result = await Sender.Send(command, cancellationToken);
         return Ok(result);
     }
 

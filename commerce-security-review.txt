@@ -1,0 +1,503 @@
+﻿
+========== .\src\Mebabl.Platform.API\Controllers\SdkCommerceController.cs ==========
+
+
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+using Mebabl.Platform.Application.Features.Commerce.Products.CreateProduct;
+using Mebabl.Platform.Application.Features.Commerce.Products.GetProduct;
+using Mebabl.Platform.Application.Features.Commerce.Products.ListProducts;
+using Mebabl.Platform.Application.Features.Commerce.Products.UpdateProduct;
+using Mebabl.Platform.Application.Features.Commerce.Products.DeleteProduct;
+
+using Mebabl.Platform.Application.Features.Commerce.Cart.GetCart;
+using Mebabl.Platform.Application.Features.Commerce.Cart.AddCartItem;
+using Mebabl.Platform.Application.Features.Commerce.Cart.UpdateCartItem;
+using Mebabl.Platform.Application.Features.Commerce.Cart.RemoveCartItem;
+
+using Mebabl.Platform.Application.Features.Commerce.Orders.CreateOrder;
+using Mebabl.Platform.Application.Features.Commerce.Orders.GetOrder;
+using Mebabl.Platform.Application.Features.Commerce.Orders.ListOrders;
+
+namespace Mebabl.Platform.API.Controllers;
+
+[ApiController]
+[Route("api/sdk/commerce")]
+[Authorize(Policy = "Application")]
+public sealed class SdkCommerceController : ControllerBase
+{
+    private readonly ISender _sender;
+
+    public SdkCommerceController(ISender sender)
+    {
+        _sender = sender;
+    }
+
+    [HttpPost("products")]
+    public async Task<IActionResult> CreateProduct(
+        [FromBody] CreateProductCommand command,
+        CancellationToken cancellationToken)
+    {
+        var id = await _sender.Send(command, cancellationToken);
+
+        return Ok(new { id });
+    }
+
+    [HttpGet("products/{productId:guid}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetProduct(
+        Guid productId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new GetProductQuery(productId),
+            cancellationToken);
+
+        return result is null
+            ? NotFound()
+            : Ok(result);
+    }
+
+    [HttpGet("products")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ListProducts(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(
+            new ListProductsQuery(page, pageSize),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [HttpPut("products/{productId:guid}")]
+    public async Task<IActionResult> UpdateProduct(
+        Guid productId,
+        [FromBody] UpdateProductRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new UpdateProductCommand(
+                productId,
+                request.Name,
+                request.Description,
+                request.Price,
+                request.Currency,
+                request.StockQuantity,
+                request.IsActive),
+            cancellationToken);
+
+        return result ? NoContent() : NotFound();
+    }
+
+    [HttpDelete("products/{productId:guid}")]
+    public async Task<IActionResult> DeleteProduct(
+        Guid productId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new DeleteProductCommand(productId),
+            cancellationToken);
+
+        return result ? NoContent() : NotFound();
+    }
+
+    [HttpGet("cart")]
+    public async Task<IActionResult> GetCart(
+        CancellationToken cancellationToken)
+    {
+        return Ok(await _sender.Send(
+            new GetCartQuery(),
+            cancellationToken));
+    }
+
+    [HttpPost("cart/items")]
+    public async Task<IActionResult> AddCartItem(
+        [FromBody] AddCartItemCommand command,
+        CancellationToken cancellationToken)
+    {
+        var id = await _sender.Send(command, cancellationToken);
+
+        return Ok(new { id });
+    }
+
+    [HttpPut("cart/items/{cartItemId:guid}")]
+    public async Task<IActionResult> UpdateCartItem(
+        Guid cartItemId,
+        [FromBody] UpdateCartItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new UpdateCartItemCommand(
+                cartItemId,
+                request.Quantity),
+            cancellationToken);
+
+        return result ? NoContent() : NotFound();
+    }
+
+    [HttpDelete("cart/items/{cartItemId:guid}")]
+    public async Task<IActionResult> RemoveCartItem(
+        Guid cartItemId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new RemoveCartItemCommand(cartItemId),
+            cancellationToken);
+
+        return result ? NoContent() : NotFound();
+    }
+
+    [HttpPost("orders")]
+    public async Task<IActionResult> CreateOrder(
+        CancellationToken cancellationToken)
+    {
+        var id = await _sender.Send(
+            new CreateOrderCommand(),
+            cancellationToken);
+
+        return Ok(new { id });
+    }
+
+    [HttpGet("orders/{orderId:guid}")]
+    public async Task<IActionResult> GetOrder(
+        Guid orderId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new GetOrderQuery(orderId),
+            cancellationToken);
+
+        return result is null
+            ? NotFound()
+            : Ok(result);
+    }
+
+    [HttpGet("orders")]
+    public async Task<IActionResult> ListOrders(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(
+            new ListOrdersQuery(page, pageSize),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    public sealed record UpdateProductRequest(
+        string Name,
+        string? Description,
+        decimal Price,
+        string Currency,
+        int StockQuantity,
+        bool IsActive);
+
+    public sealed record UpdateCartItemRequest(
+        int Quantity);
+}
+
+========== .\src\Mebabl.Platform.Application\Features\Commerce\Cart\GetCart\GetCartQueryHandler.cs ==========
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Mebabl.Platform.Application.Common.Interfaces;
+
+namespace Mebabl.Platform.Application.Features.Commerce.Cart.GetCart;
+
+public sealed class GetCartQueryHandler
+    : IRequestHandler<GetCartQuery, CartDto>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentUser _currentUser;
+
+    public GetCartQueryHandler(
+        IApplicationDbContext db,
+        ICurrentApplication currentApplication,
+        ICurrentUser currentUser)
+    {
+        _db = db;
+        _currentApplication = currentApplication;
+        _currentUser = currentUser;
+    }
+
+    public async Task<CartDto> Handle(
+        GetCartQuery request,
+        CancellationToken cancellationToken)
+    {
+        var cart = await _db.Carts
+            .AsNoTracking()
+            .Include(x => x.Items)
+            .ThenInclude(x => x.Product)
+            .FirstOrDefaultAsync(x =>
+                x.ApplicationId == _currentApplication.ApplicationId &&
+                x.UserId == _currentUser.UserId,
+                cancellationToken);
+
+        if (cart is null)
+        {
+            return new CartDto(
+                Guid.Empty,
+                Array.Empty<CartItemDto>(),
+                0);
+        }
+
+        var items = cart.Items
+            .Select(x => new CartItemDto(
+                x.Id,
+                x.ProductId,
+                x.Product.Name,
+                x.Product.Price,
+                x.Quantity,
+                x.Product.Price * x.Quantity))
+            .ToList();
+
+        return new CartDto(
+            cart.Id,
+            items,
+            items.Sum(x => x.TotalPrice));
+    }
+}
+
+========== .\src\Mebabl.Platform.Application\Features\Commerce\Cart\AddCartItem\AddCartItemCommandHandler.cs ==========
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Domain.Entities.Commerce;
+
+namespace Mebabl.Platform.Application.Features.Commerce.Cart.AddCartItem;
+
+public sealed class AddCartItemCommandHandler
+    : IRequestHandler<AddCartItemCommand, Guid>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentUser _currentUser;
+
+    public AddCartItemCommandHandler(
+        IApplicationDbContext db,
+        ICurrentApplication currentApplication,
+        ICurrentUser currentUser)
+    {
+        _db = db;
+        _currentApplication = currentApplication;
+        _currentUser = currentUser;
+    }
+
+    public async Task<Guid> Handle(
+        AddCartItemCommand request,
+        CancellationToken cancellationToken)
+    {
+        var applicationId = _currentApplication.ApplicationId;
+        var userId = _currentUser.UserId;
+
+        var product = await _db.Products
+            .FirstOrDefaultAsync(
+                x =>
+                    x.Id == request.ProductId &&
+                    x.ApplicationId == applicationId &&
+                    x.IsActive,
+                cancellationToken);
+
+        if (product is null)
+            throw new KeyNotFoundException("Product not found.");
+
+        if (request.Quantity <= 0)
+            throw new ArgumentException(
+                "Quantity must be greater than zero.");
+
+        var cart = await _db.Carts
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(
+                x =>
+                    x.ApplicationId == applicationId &&
+                    x.UserId == userId,
+                cancellationToken);
+
+        if (cart is null)
+        {
+            cart = new Mebabl.Platform.Domain.Entities.Commerce.Cart
+            {
+                Id = Guid.NewGuid(),
+                ApplicationId = applicationId,
+                UserId = userId
+            };
+
+            _db.Carts.Add(cart);
+        }
+
+        var existingItem = cart.Items
+            .FirstOrDefault(x => x.ProductId == request.ProductId);
+
+        if (existingItem is not null)
+        {
+            existingItem.Quantity += request.Quantity;
+
+            await _db.SaveChangesAsync(cancellationToken);
+
+            return existingItem.Id;
+        }
+
+        var item = new CartItem
+        {
+            Id = Guid.NewGuid(),
+            CartId = cart.Id,
+            ProductId = product.Id,
+            Quantity = request.Quantity
+        };
+
+        cart.Items.Add(item);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return item.Id;
+    }
+}
+
+========== .\src\Mebabl.Platform.Application\Features\Commerce\Orders\CreateOrder\CreateOrderCommandHandler.cs ==========
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Mebabl.Platform.Application.Common.Interfaces;
+using Mebabl.Platform.Domain.Entities.Commerce;
+
+namespace Mebabl.Platform.Application.Features.Commerce.Orders.CreateOrder;
+
+public sealed class CreateOrderCommandHandler
+    : IRequestHandler<CreateOrderCommand, Guid>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentUser _currentUser;
+
+    public CreateOrderCommandHandler(
+        IApplicationDbContext db,
+        ICurrentApplication currentApplication,
+        ICurrentUser currentUser)
+    {
+        _db = db;
+        _currentApplication = currentApplication;
+        _currentUser = currentUser;
+    }
+
+    public async Task<Guid> Handle(
+        CreateOrderCommand request,
+        CancellationToken cancellationToken)
+    {
+        var cart = await _db.Carts
+            .Include(x => x.Items)
+            .ThenInclude(x => x.Product)
+            .FirstOrDefaultAsync(x =>
+                x.ApplicationId == _currentApplication.ApplicationId &&
+                x.UserId == _currentUser.UserId,
+                cancellationToken);
+
+        if (cart is null || cart.Items.Count == 0)
+            throw new InvalidOperationException("Cart is empty.");
+
+        foreach (var item in cart.Items)
+        {
+            if (!item.Product.IsActive)
+                throw new InvalidOperationException(
+                    $"Product '{item.Product.Name}' is unavailable.");
+
+            if (item.Quantity > item.Product.StockQuantity)
+                throw new InvalidOperationException(
+                    $"Insufficient stock for '{item.Product.Name}'.");
+        }
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            ApplicationId = _currentApplication.ApplicationId,
+            UserId = _currentUser.UserId,
+            Status = "Pending",
+            Currency = cart.Items.First().Product.Currency
+        };
+
+        foreach (var cartItem in cart.Items)
+        {
+            var total = cartItem.Product.Price * cartItem.Quantity;
+
+            order.Items.Add(new OrderItem
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                ProductId = cartItem.ProductId,
+                ProductName = cartItem.Product.Name,
+                UnitPrice = cartItem.Product.Price,
+                Quantity = cartItem.Quantity,
+                TotalPrice = total
+            });
+
+            cartItem.Product.StockQuantity -= cartItem.Quantity;
+        }
+
+        order.TotalAmount = order.Items.Sum(x => x.TotalPrice);
+
+        _db.Orders.Add(order);
+        _db.CartItems.RemoveRange(cart.Items);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return order.Id;
+    }
+}
+
+========== .\src\Mebabl.Platform.Application\Features\Commerce\Orders\GetOrder\GetOrderQueryHandler.cs ==========
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Mebabl.Platform.Application.Common.Interfaces;
+
+namespace Mebabl.Platform.Application.Features.Commerce.Orders.GetOrder;
+
+public sealed class GetOrderQueryHandler
+    : IRequestHandler<GetOrderQuery, OrderDto?>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly ICurrentApplication _currentApplication;
+    private readonly ICurrentUser _currentUser;
+
+    public GetOrderQueryHandler(
+        IApplicationDbContext db,
+        ICurrentApplication currentApplication,
+        ICurrentUser currentUser)
+    {
+        _db = db;
+        _currentApplication = currentApplication;
+        _currentUser = currentUser;
+    }
+
+    public async Task<OrderDto?> Handle(
+        GetOrderQuery request,
+        CancellationToken cancellationToken)
+    {
+        return await _db.Orders
+            .AsNoTracking()
+            .Where(x =>
+                x.Id == request.OrderId &&
+                x.ApplicationId == _currentApplication.ApplicationId &&
+                x.UserId == _currentUser.UserId)
+            .Select(x => new OrderDto(
+                x.Id,
+                x.Status,
+                x.TotalAmount,
+                x.Currency,
+                x.CreatedAt,
+                x.Items
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => new OrderItemDto(
+                        i.ProductId,
+                        i.ProductName,
+                        i.UnitPrice,
+                        i.Quantity,
+                        i.TotalPrice))
+                    .ToList()
+            ))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+}

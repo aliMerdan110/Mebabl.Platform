@@ -4,12 +4,11 @@ namespace Mebabl.Platform.Domain.Entities.Identity;
 
 public sealed class ApplicationUserPasswordResetToken : AuditableEntity
 {
-    public Guid UserId { get; set; }
-    
-    // خاصية الربط (Navigation Property) مع مستخدم الـ SDK
-    public ApplicationUser User { get; set; } = default!;
+    public Guid ApplicationUserId { get; set; }
 
-    public string TokenHash { get; set; } = default!;
+    public ApplicationUser ApplicationUser { get; set; } = default!;
+
+    public string TokenHash { get; set; } = string.Empty;
 
     public DateTime ExpiresAt { get; set; }
 

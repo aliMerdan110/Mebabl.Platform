@@ -1,5 +1,7 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+
 using Mebabl.Platform.Application.Common.Interfaces;
 
 namespace Mebabl.Platform.Application.Features.ApplicationAuthentication.Providers;
@@ -23,13 +25,14 @@ public sealed class ToggleAuthProviderCommandHandler
         CancellationToken cancellationToken)
     {
         if (!_currentDeveloper.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+            throw new UnauthorizedAccessException(
+                "Authenticated developer is required.");
 
         var applicationExists = await _db.Applications
             .AnyAsync(
                 x =>
                     x.Id == request.ApplicationId &&
-                    x.DeveloperId == _currentDeveloper.DeveloperId &&
+                    x.Project.DeveloperId == _currentDeveloper.DeveloperId &&
                     !x.IsDeleted,
                 cancellationToken);
 

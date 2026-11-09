@@ -18,27 +18,36 @@ public sealed class CreateChannelCommandHandler
         _currentApplication = currentApplication;
     }
 
-
     public async Task<CreateChannelResponse> Handle(
         CreateChannelCommand request,
         CancellationToken cancellationToken)
     {
-        if (!_currentApplication.IsAuthenticated)
-            throw new UnauthorizedAccessException();
+        var applicationId = _currentApplication.ApplicationId;
 
+        if (!_currentApplication.IsAuthenticated ||
+            applicationId == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException(
+                "Authenticated application credentials are required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException(
+                "Channel name is required.",
+                nameof(request.Name));
+        }
 
         var channel = new Channel
         {
-            ApplicationId = _currentApplication.ApplicationId,
-            Name = request.Name,
+            ApplicationId = applicationId,
+            Name = request.Name.Trim(),
             IsActive = true
         };
-
 
         _context.Channels.Add(channel);
 
         await _context.SaveChangesAsync(cancellationToken);
-
 
         return new CreateChannelResponse(
             channel.Id,

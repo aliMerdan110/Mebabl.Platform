@@ -3,13 +3,11 @@ using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Application.Common.Services.ApplicationInitialization;
 
-public sealed class ApplicationInitializer
-    : IApplicationInitializer
+public sealed class ApplicationInitializer : IApplicationInitializer
 {
     private readonly IApplicationDbContext _dbContext;
 
-    public ApplicationInitializer(
-        IApplicationDbContext dbContext)
+    public ApplicationInitializer(IApplicationDbContext dbContext)
     {
         _dbContext = dbContext;
     }
@@ -18,62 +16,64 @@ public sealed class ApplicationInitializer
         Guid applicationId,
         CancellationToken cancellationToken)
     {
-        var owner = new Role
+        var roles = new[]
         {
-            Id = Guid.NewGuid(),
-            ApplicationId = applicationId,
-            Name = "Owner",
-            Description = "Application Owner"
+            new Role
+            {
+                Id = Guid.NewGuid(),
+                ApplicationId = applicationId,
+                Name = "Owner",
+                Code = "owner",
+                Description = "Application Owner"
+            },
+            new Role
+            {
+                Id = Guid.NewGuid(),
+                ApplicationId = applicationId,
+                Name = "Admin",
+                Code = "admin",
+                Description = "Application Administrator"
+            },
+            new Role
+            {
+                Id = Guid.NewGuid(),
+                ApplicationId = applicationId,
+                Name = "User",
+                Code = "user",
+                Description = "Application User"
+            }
         };
 
-        var admin = new Role
+        _dbContext.Roles.AddRange(roles);
+
+        var owner = roles[0];
+        var admin = roles[1];
+
+        var permissionCodes = new[]
         {
-            Id = Guid.NewGuid(),
-            ApplicationId = applicationId,
-            Name = "Admin",
-            Description = "Application Administrator"
+            "applications.read",
+            "applications.update",
+            "users.read",
+            "users.create",
+            "users.update",
+            "users.delete",
+            "roles.read",
+            "roles.create",
+            "roles.update",
+            "roles.delete",
+            "permissions.read",
+            "permissions.create",
+            "permissions.update",
+            "permissions.delete",
+            "credentials.read",
+            "credentials.create",
+            "credentials.enable",
+            "credentials.disable",
+            "live.view",
+            "live.publish"
         };
 
-        var user = new Role
-        {
-            Id = Guid.NewGuid(),
-            ApplicationId = applicationId,
-            Name = "User",
-            Description = "Application User"
-        };
-
-        _dbContext.Roles.AddRange(owner, admin, user);
-
-        var permissions = new[]
-{
-    "applications.read",
-    "applications.update",
-
-    "users.read",
-    "users.create",
-    "users.update",
-    "users.delete",
-
-    "roles.read",
-    "roles.create",
-    "roles.update",
-    "roles.delete",
-
-    "permissions.read",
-    "permissions.create",
-    "permissions.update",
-    "permissions.delete",
-
-    "credentials.read",
-    "credentials.create",
-    "credentials.enable",
-    "credentials.disable",
-
-    "live.view",
-    "live.publish"
-};
-
-        var permissionEntities = permissions
+        var permissions = permissionCodes
             .Select(code => new Permission
             {
                 Id = Guid.NewGuid(),
@@ -82,33 +82,31 @@ public sealed class ApplicationInitializer
                 Code = code,
                 Description = code
             })
-            .ToList();
+            .ToArray();
 
-        _dbContext.Permissions.AddRange(permissionEntities);
+        _dbContext.Permissions.AddRange(permissions);
 
-        foreach (var permission in permissionEntities)
+        foreach (var permission in permissions)
         {
-            _dbContext.RolePermissions.Add(
-                new RolePermission
-                {
-                    Id = Guid.NewGuid(),
-                    RoleId = owner.Id,
-                    PermissionId = permission.Id
-                });
+            _dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                RoleId = owner.Id,
+                PermissionId = permission.Id
+            });
         }
 
-        foreach (var permission in permissionEntities.Where(x =>
-                     x.Code.StartsWith("users.") ||
-                     x.Code.StartsWith("roles.") ||
-                     x.Code.StartsWith("permissions.")))
+        foreach (var permission in permissions.Where(permission =>
+                     permission.Code.StartsWith("users.", StringComparison.Ordinal) ||
+                     permission.Code.StartsWith("roles.", StringComparison.Ordinal) ||
+                     permission.Code.StartsWith("permissions.", StringComparison.Ordinal)))
         {
-            _dbContext.RolePermissions.Add(
-                new RolePermission
-                {
-                    Id = Guid.NewGuid(),
-                    RoleId = admin.Id,
-                    PermissionId = permission.Id
-                });
+            _dbContext.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                RoleId = admin.Id,
+                PermissionId = permission.Id
+            });
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);

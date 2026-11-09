@@ -1,3 +1,4 @@
+
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -5,6 +6,7 @@ using Mebabl.Platform.Application.Common.Interfaces;
 using Mebabl.Platform.Application.Common.Options;
 using Mebabl.Platform.Application.Services.Email;
 using Mebabl.Platform.Application.Services.PasswordReset;
+using Mebabl.Platform.Domain.Entities.Identity;
 
 namespace Mebabl.Platform.Application.Features.SdkAuth.ForgotPassword;
 
@@ -38,67 +40,54 @@ public sealed class SdkForgotPasswordCommandHandler
         var applicationId = _currentApplication.ApplicationId;
 
         if (applicationId == Guid.Empty)
-        {
             throw new UnauthorizedAccessException(
                 "Application authentication is required.");
-        }
 
-        var normalizedEmail = request.Email
-            .Trim()
-            .ToUpperInvariant();
+        var normalizedEmail = request.Email.Trim().ToUpperInvariant();
 
         var user = await _dbContext.ApplicationUsers
             .FirstOrDefaultAsync(
-                x =>
-                    x.ApplicationId == applicationId &&
-                    x.NormalizedEmail == normalizedEmail &&
-                    x.IsActive &&
-                    !x.IsDeleted,
+                x => x.ApplicationId == applicationId
+                     && x.NormalizedEmail == normalizedEmail
+                     && x.IsActive
+                     && !x.IsDeleted,
                 cancellationToken);
 
         const string genericMessage =
             "If an account exists with this email, you will receive instructions to reset your password.";
 
         if (user is null)
-        {
             return new SdkForgotPasswordResponse(genericMessage);
-        }
 
         var now = DateTime.UtcNow;
 
         var activeTokens =
             await _dbContext.ApplicationUserPasswordResetTokens
-                .Where(
-                    x =>
-                        x.UserId == user.Id &&
-                        x.UsedAt == null &&
-                        x.ExpiresAt > now)
+                .Where(x =>
+                    x.ApplicationUserId == user.Id &&
+                    x.UsedAt == null &&
+                    x.ExpiresAt > now)
                 .ToListAsync(cancellationToken);
 
         foreach (var token in activeTokens)
-        {
             token.UsedAt = now;
-        }
 
         var rawToken = _tokenService.GenerateToken();
-        var tokenHash = _tokenService.HashToken(rawToken);
 
-        var resetToken =
-            new Domain.Entities.Identity.ApplicationUserPasswordResetToken
-            {
-                UserId = user.Id,
-                TokenHash = tokenHash,
-                ExpiresAt = now.AddMinutes(30)
-            };
+        var resetToken = new ApplicationUserPasswordResetToken
+        {
+            ApplicationUserId = user.Id,
+            TokenHash = _tokenService.HashToken(rawToken),
+            ExpiresAt = now.AddMinutes(30)
+        };
 
         _dbContext.ApplicationUserPasswordResetTokens.Add(resetToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var authUrl = _authOptions.BaseUrl.TrimEnd('/');
-
-        var resetUrl =
-            $"{authUrl}/reset-password?token={Uri.EscapeDataString(rawToken)}";
+       var resetUrl =
+    $"{authUrl}/user/reset-password?token={Uri.EscapeDataString(rawToken)}";
 
         await _emailService.SendAsync(
             user.Email,
