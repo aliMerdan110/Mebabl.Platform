@@ -257,10 +257,26 @@ public sealed class PlatformDbContext : DbContext, IApplicationDbContext
             {
                 Collection collection => collection.ProjectId,
                 Document document => document.ProjectId,
+                SecurityRule securityRule => securityRule.ProjectId,
                 _ => (Guid?)null
             };
 
-            if (entityProjectId.HasValue && entityProjectId.Value != authenticatedProjectId)
+            if (!entityProjectId.HasValue)
+            {
+                continue;
+            }
+
+            // Check both the current and original values. Otherwise, a tracked
+            // entity loaded from another project could be reassigned to the
+            // authenticated project before SaveChanges and pass this guard.
+            // ChangeTracker.Entries() returns non-generic EntityEntry, so read
+            // the original value through the non-generic Property(string) API.
+            var originalProjectId = (Guid)entry
+                .Property(nameof(Collection.ProjectId))
+                .OriginalValue!;
+
+            if (entityProjectId.Value != authenticatedProjectId ||
+                (entry.State != EntityState.Added && originalProjectId != authenticatedProjectId))
             {
                 throw new UnauthorizedAccessException(
                     "The authenticated user cannot modify Database resources outside the current project.");

@@ -477,9 +477,6 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ApplicationId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -520,6 +517,9 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -528,11 +528,17 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApplicationId", "Code")
-                        .IsUnique();
+                    b.HasAlternateKey("ProjectId", "Id")
+                        .HasName("AK_Collections_ProjectId_Id");
 
-                    b.HasIndex("ApplicationId", "Name")
-                        .IsUnique();
+                    b.HasIndex("ProjectId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Collections_ProjectId_Code_Active")
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.HasIndex("ProjectId", "Name")
+                        .HasDatabaseName("IX_Collections_ProjectId_Name_Active")
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.ToTable("Collections", (string)null);
                 });
@@ -543,32 +549,37 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ApplicationId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("CollectionId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("CreatedByApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<JsonDocument>("Data")
                         .IsRequired()
                         .HasColumnType("jsonb");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid");
 
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
@@ -576,15 +587,27 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CollectionId");
+                    b.HasIndex("ProjectId", "CreatedByApplicationId");
 
-                    b.HasIndex("ApplicationId", "CollectionId", "CreatedAt");
+                    b.HasIndex("ProjectId", "CollectionId", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Documents_Project_Collection_Key_Active")
+                        .HasFilter("\"IsDeleted\" = false");
 
-                    b.HasIndex("ApplicationId", "CollectionId", "Key");
+                    b.HasIndex("ProjectId", "CollectionId", "CreatedAt", "Id")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("IX_Documents_Project_Collection_CreatedAt_Id_Active")
+                        .HasFilter("\"IsDeleted\" = false");
 
-                    b.HasIndex("ApplicationId", "CollectionId", "UserId");
+                    b.HasIndex("ProjectId", "CollectionId", "CreatedByUserId", "CreatedAt", "Id")
+                        .IsDescending(false, false, false, true, true)
+                        .HasDatabaseName("IX_Documents_Project_Collection_Creator_CreatedAt_Id_Active")
+                        .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("Documents", (string)null);
+                    b.ToTable("Documents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Documents_Version_Positive", "\"Version\" >= 1");
+                        });
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Database.SecurityRule", b =>
@@ -592,26 +615,6 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<bool>("CanDelete")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<bool>("CanQuery")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<bool>("CanRead")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<bool>("CanWrite")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
 
                     b.Property<Guid>("CollectionId")
                         .HasColumnType("uuid");
@@ -621,6 +624,10 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
+
+                    b.Property<JsonDocument>("Definition")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
@@ -636,10 +643,17 @@ namespace Mebabl.Platform.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Permission")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -649,10 +663,21 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CollectionId", "Permission")
-                        .IsUnique();
+                    b.HasIndex("ProjectId", "CollectionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_SecurityRules_Project_Collection")
+                        .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("SecurityRules", (string)null);
+                    b.HasIndex("ProjectId", "IsActive", "PublishedAt")
+                        .HasDatabaseName("IX_SecurityRules_Project_Active_PublishedAt")
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("SecurityRules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SecurityRules_Definition_Object", "jsonb_typeof(\"Definition\") = 'object'");
+
+                            t.HasCheckConstraint("CK_SecurityRules_Revision_Positive", "\"Revision\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Identity.Account", b =>
@@ -1373,14 +1398,27 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("ProjectId", "Id")
+                        .HasName("AK_Applications_ProjectId_Id");
+
                     b.HasIndex("TenantId");
 
                     b.HasIndex("ProjectId", "Code")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("UX_Applications_ProjectId_Code");
 
-                    b.HasIndex("ProjectId", "ProjectPlatformId");
+                    b.HasIndex("ProjectId", "IsActive")
+                        .HasDatabaseName("IX_Applications_ProjectId_IsActive");
 
-                    b.ToTable("Applications", (string)null);
+                    b.HasIndex("ProjectId", "ProjectPlatformId")
+                        .HasDatabaseName("IX_Applications_ProjectId_ProjectPlatformId");
+
+                    b.ToTable("Applications", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Applications_Code_Not_Empty", "length(btrim(\"Code\")) > 0");
+
+                            t.HasCheckConstraint("CK_Applications_Name_Not_Empty", "length(btrim(\"Name\")) > 0");
+                        });
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Identity.Profile", b =>
@@ -1819,7 +1857,28 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ProjectPlatforms", (string)null);
+                    b.HasIndex("ProjectId", "BundleId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProjectPlatforms_Project_BundleId")
+                        .HasFilter("\"BundleId\" IS NOT NULL AND \"BundleId\" <> ''");
+
+                    b.HasIndex("ProjectId", "Domain")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProjectPlatforms_Project_Domain")
+                        .HasFilter("\"Domain\" IS NOT NULL AND \"Domain\" <> ''");
+
+                    b.HasIndex("ProjectId", "PackageName")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProjectPlatforms_Project_PackageName")
+                        .HasFilter("\"PackageName\" IS NOT NULL AND \"PackageName\" <> ''");
+
+                    b.HasIndex("ProjectId", "Platform", "IsActive")
+                        .HasDatabaseName("IX_ProjectPlatforms_Project_Platform_Active");
+
+                    b.ToTable("ProjectPlatforms", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProjectPlatforms_Platform_NotBlank", "length(trim(\"Platform\")) > 0");
+                        });
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Projects.ProjectPlatformFingerprint", b =>
@@ -2866,35 +2925,60 @@ namespace Mebabl.Platform.Infrastructure.Migrations
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Database.Collection", b =>
                 {
-                    b.HasOne("Mebabl.Platform.Domain.Entities.Identity.PlatformApplication", "Application")
+                    b.HasOne("Mebabl.Platform.Domain.Entities.Projects.PlatformProject", "Project")
                         .WithMany()
-                        .HasForeignKey("ApplicationId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Application");
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Database.Document", b =>
                 {
+                    b.HasOne("Mebabl.Platform.Domain.Entities.Projects.PlatformProject", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Mebabl.Platform.Domain.Entities.Database.Collection", "Collection")
                         .WithMany("Documents")
-                        .HasForeignKey("CollectionId")
+                        .HasForeignKey("ProjectId", "CollectionId")
+                        .HasPrincipalKey("ProjectId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mebabl.Platform.Domain.Entities.Identity.PlatformApplication", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "CreatedByApplicationId")
+                        .HasPrincipalKey("ProjectId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Collection");
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Database.SecurityRule", b =>
                 {
+                    b.HasOne("Mebabl.Platform.Domain.Entities.Projects.PlatformProject", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Mebabl.Platform.Domain.Entities.Database.Collection", "Collection")
                         .WithMany()
-                        .HasForeignKey("CollectionId")
+                        .HasForeignKey("ProjectId", "CollectionId")
+                        .HasPrincipalKey("ProjectId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Collection");
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("Mebabl.Platform.Domain.Entities.Identity.Account", b =>

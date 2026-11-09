@@ -1,3 +1,4 @@
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Mebabl.Platform.Domain.Entities.Database;
@@ -50,23 +51,26 @@ public sealed class SecurityRuleConfiguration
 
         builder.Property(x => x.PublishedAt);
 
-        // One current policy is allowed for each collection in its project.
-        // The project-leading index also supports project-scoped policy lookups.
+        // Only one non-deleted policy is allowed for each collection.
+        // A soft-deleted policy does not block creating a replacement.
         builder.HasIndex(x => new
             {
                 x.ProjectId,
                 x.CollectionId
             })
             .IsUnique()
-            .HasDatabaseName("UX_SecurityRules_Project_Collection");
+            .HasDatabaseName("UX_SecurityRules_Project_Collection")
+            .HasFilter("\"IsDeleted\" = false");
 
+        // Supports project-scoped lookups of non-deleted policies.
         builder.HasIndex(x => new
             {
                 x.ProjectId,
                 x.IsActive,
                 x.PublishedAt
             })
-            .HasDatabaseName("IX_SecurityRules_Project_Active_PublishedAt");
+            .HasDatabaseName("IX_SecurityRules_Project_Active_PublishedAt")
+            .HasFilter("\"IsDeleted\" = false");
 
         builder.HasOne(x => x.Project)
             .WithMany()
@@ -75,7 +79,7 @@ public sealed class SecurityRuleConfiguration
             .OnDelete(DeleteBehavior.Restrict);
 
         // A policy cannot reference a collection belonging to another project.
-        // Physical collection deletion removes its policy; normal collection
+        // Physical collection deletion removes its policies; normal collection
         // lifecycle operations should use soft deletion.
         builder.HasOne(x => x.Collection)
             .WithMany()

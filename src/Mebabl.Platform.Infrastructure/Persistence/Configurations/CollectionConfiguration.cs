@@ -1,3 +1,4 @@
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Mebabl.Platform.Domain.Entities.Database;
@@ -12,6 +13,14 @@ public sealed class CollectionConfiguration
         builder.ToTable("Collections");
 
         builder.HasKey(x => x.Id);
+
+        // Principal key used by the composite Document relationship.
+        builder.HasAlternateKey(x => new
+            {
+                x.ProjectId,
+                x.Id
+            })
+            .HasName("AK_Collections_ProjectId_Id");
 
         builder.Property(x => x.ProjectId)
             .IsRequired();
@@ -36,8 +45,7 @@ public sealed class CollectionConfiguration
             .HasDefaultValue(true)
             .IsRequired();
 
-        // Code is the normalized, stable collection identifier within a project.
-        // A filtered unique index allows a soft-deleted collection's code to be reused.
+        // Code is unique within a project among active collections.
         builder.HasIndex(x => new
             {
                 x.ProjectId,
@@ -47,8 +55,6 @@ public sealed class CollectionConfiguration
             .HasDatabaseName("UX_Collections_ProjectId_Code_Active")
             .HasFilter("\"IsDeleted\" = false");
 
-        // Supports project-scoped collection-name lookup without relying on
-        // application IDs, since applications in the same project share data.
         builder.HasIndex(x => new
             {
                 x.ProjectId,
