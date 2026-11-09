@@ -44,4 +44,14 @@ TestResults/
 
 # OS
 .DS_Store
-Thumbs.db
+Thumbs.db**/bin/
+**/obj/
+**/publish/
+**/publish-staging*/
+artifacts/
+mebabl-api-*.tar.gz
+mebabl-api.zip
+.vs/
+*.user
+.env
+.env.*
